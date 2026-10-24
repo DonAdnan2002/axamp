@@ -64,7 +64,7 @@ func (m *Manager) InspectPackages() []PackageStatus {
 		{
 			ID:          "phpmyadmin",
 			Name:        "phpMyAdmin (5.2.3 Full Web Suite)",
-			BinaryPath:  filepath.Join(m.cfg.RootDir, "tools", "phpmyadmin", "libraries"),
+			BinaryPath:  filepath.Join(m.cfg.RootDir, "tools", "phpmyadmin", "vendor", "webmozart", "assert", "src", "Assert.php"),
 			DownloadURL: "https://files.phpmyadmin.net/phpMyAdmin/5.2.3/phpMyAdmin-5.2.3-all-languages.zip",
 		},
 	}

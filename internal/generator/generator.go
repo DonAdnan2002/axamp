@@ -495,7 +495,9 @@ func ensureDatabaseTools(cfg *config.AppConfig) {
 $cfg['blowfish_secret'] = 'axamp_smart_secret_key_32bytes_!!';
 $i = 0;
 $i++;
-$cfg['Servers'][$i]['auth_type'] = 'cookie';
+$cfg['Servers'][$i]['auth_type'] = 'config';
+$cfg['Servers'][$i]['user'] = 'root';
+$cfg['Servers'][$i]['password'] = '';
 $cfg['Servers'][$i]['host'] = '127.0.0.1';
 $cfg['Servers'][$i]['port'] = '%s';
 $cfg['Servers'][$i]['compress'] = false;
@@ -506,15 +508,18 @@ $cfg['TempDir'] = '%s/tmp';
 `, cfg.MySQLPort, slashPath(cfg.RootDir))
 	_ = os.WriteFile(filepath.Join(pmaDir, "config.inc.php"), []byte(pmaConfig), 0644)
 
-	// Provide a fallback index.php inside tools/phpmyadmin if user hasn't downloaded full phpMyAdmin zip yet
+	// Provide a fallback index.php inside tools/phpmyadmin ONLY if full phpMyAdmin is not installed yet
 	pmaIndex := filepath.Join(pmaDir, "index.php")
-	if _, err := os.Stat(pmaIndex); os.IsNotExist(err) {
-		placeholder := fmt.Sprintf(`<?php
+	pmaLibs := filepath.Join(pmaDir, "libraries")
+	if _, err := os.Stat(pmaLibs); os.IsNotExist(err) {
+		if _, err := os.Stat(pmaIndex); os.IsNotExist(err) {
+			placeholder := fmt.Sprintf(`<?php
 // AXAMP Smart Database Gateway (phpMyAdmin / Built-in SQL Console)
 header("Location: http://127.0.0.1:%s/?tab=database");
 exit;
 `, cfg.ControlPort)
-		_ = os.WriteFile(pmaIndex, []byte(placeholder), 0644)
+			_ = os.WriteFile(pmaIndex, []byte(placeholder), 0644)
+		}
 	}
 
 	// 2. Built-in lightweight PHP SQL studio in /adminer/index.php
