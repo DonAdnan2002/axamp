@@ -591,8 +591,18 @@ func (m *Manager) ManageWindowsService(target, action string) error {
 	var cmd *exec.Cmd
 	switch action {
 	case "install":
-		cmd = exec.Command("sc.exe", "create", svcName, "binPath=", binPath, "start=", "auto", "DisplayName=", svcName)
+		inst, _ := queryWinServiceState(svcName)
+		if inst {
+			// Service already exists -> update its binPath configuration seamlessly instead of failing with 1073
+			cmd = exec.Command("sc.exe", "config", svcName, "binPath=", binPath, "start=", "auto", "DisplayName=", svcName)
+		} else {
+			cmd = exec.Command("sc.exe", "create", svcName, "binPath=", binPath, "start=", "auto", "DisplayName=", svcName)
+		}
 	case "remove":
+		inst, _ := queryWinServiceState(svcName)
+		if !inst {
+			return nil
+		}
 		_ = exec.Command("sc.exe", "stop", svcName).Run()
 		cmd = exec.Command("sc.exe", "delete", svcName)
 	case "start":
