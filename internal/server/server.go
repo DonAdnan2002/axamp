@@ -576,6 +576,9 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	if req.RegeneratePIN {
 		s.cfg.RegeneratePIN()
 	} else {
+		portChangedApache := req.ApachePort != "" && req.ApachePort != s.cfg.ApachePort
+		portChangedMySQL := req.MySQLPort != "" && req.MySQLPort != s.cfg.MySQLPort
+
 		if req.ApachePort != "" {
 			s.cfg.ApachePort = req.ApachePort
 		}
@@ -590,6 +593,16 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		_ = s.cfg.Save()
 		hw := profiler.InspectSystem()
 		_ = generator.GenerateAll(s.cfg, hw)
+
+		st := s.sup.Status()
+		if portChangedApache {
+			_ = s.sup.StopApache()
+			_ = s.sup.StartApache()
+		}
+		if portChangedMySQL && st["mysql"].State == supervisor.StateRunning {
+			_ = s.sup.StopMySQL()
+			_ = s.sup.StartMySQL()
+		}
 	}
 
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{

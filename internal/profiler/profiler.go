@@ -136,16 +136,32 @@ func getLocalIPs() []string {
 }
 
 func IsPortAvailable(port string) bool {
-	ln, err := net.Listen("tcp", "0.0.0.0:"+port)
-	if err != nil {
-		return false
+	// 1. Check active TCP listeners via netstat to prevent Windows SO_REUSEADDR false positives
+	cmd := exec.Command("cmd", "/c", fmt.Sprintf("netstat -ano | findstr LISTENING | findstr :%s", port))
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	if out, err := cmd.Output(); err == nil {
+		for _, line := range strings.Split(string(out), "\n") {
+			fields := strings.Fields(strings.TrimSpace(line))
+			if len(fields) >= 2 {
+				localAddr := fields[1]
+				if strings.HasSuffix(localAddr, ":"+port) {
+					return false
+				}
+			}
+		}
 	}
-	_ = ln.Close()
-	lnLocal, err := net.Listen("tcp", "127.0.0.1:"+port)
-	if err != nil {
-		return false
+
+	// 2. Also verify actual socket bind on IPv4 and IPv6
+	for _, host := range []string{"0.0.0.0", "127.0.0.1", "[::]"} {
+		ln, err := net.Listen("tcp", host+":"+port)
+		if err != nil {
+			if host == "[::]" {
+				continue
+			}
+			return false
+		}
+		_ = ln.Close()
 	}
-	_ = lnLocal.Close()
 	return true
 }
 

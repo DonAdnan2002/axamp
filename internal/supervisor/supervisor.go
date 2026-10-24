@@ -1,10 +1,12 @@
 package supervisor
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -311,9 +313,36 @@ func (m *Manager) StartApache() error {
 	}
 
 	confFile := filepath.Join(m.cfg.RootDir, "conf", "httpd.conf")
+
+	// Pre-flight syntax & DLL compatibility validation (httpd.exe -t)
+	testCmd := exec.Command(bin, "-t", "-f", confFile)
+	testCmd.Dir = filepath.Join(m.cfg.RootDir, "bin", "apache")
+	testCmd.Env = m.buildIsolatedEnv()
+	testCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	if testOut, testErr := testCmd.CombinedOutput(); testErr != nil {
+		reason := strings.TrimSpace(string(testOut))
+		if reason == "" {
+			if exitErr, ok := testErr.(*exec.ExitError); ok {
+				code := uint32(exitErr.ExitCode())
+				if code == 0xC0000135 || exitErr.ExitCode() == -1073741515 {
+					reason = "مكتبة Visual C++ Redistributable 2015-2022 (x64) غير مثبتة على الويندوز (0xC0000135 DLL Missing)"
+				} else {
+					reason = fmt.Sprintf("Apache pre-check failed (code %d / 0x%X): %v", exitErr.ExitCode(), code, testErr)
+				}
+			} else {
+				reason = testErr.Error()
+			}
+		}
+		m.apacheErr = reason
+		m.logEvent("Apache config/DLL error (Auto-Heal paused): " + reason)
+		return fmt.Errorf("%s", reason)
+	}
+
+	var stderrBuf bytes.Buffer
 	cmd := exec.Command(bin, "-f", confFile)
 	cmd.Dir = filepath.Join(m.cfg.RootDir, "bin", "apache")
 	cmd.Env = m.buildIsolatedEnv()
+	cmd.Stderr = &stderrBuf
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 
 	if err := cmd.Start(); err != nil {
@@ -328,27 +357,74 @@ func (m *Manager) StartApache() error {
 	m.stopApache = false
 	m.logEvent(fmt.Sprintf("Apache started on port %s (PID %d)", m.cfg.ApachePort, cmd.Process.Pid))
 
-	go m.watchApache(cmd)
+	go m.watchApache(cmd, &stderrBuf)
 	return nil
 }
 
-func (m *Manager) watchApache(cmd *exec.Cmd) {
+func (m *Manager) watchApache(cmd *exec.Cmd, stderrBuf *bytes.Buffer) {
 	err := cmd.Wait()
 	m.mu.Lock()
 	wasStoppedIntentionally := m.stopApache
+	runDuration := time.Since(m.apacheStart)
 	m.apacheCmd = nil
+
+	stderrMsg := strings.TrimSpace(stderrBuf.String())
+	if stderrMsg == "" {
+		stderrMsg = m.readLastApacheErrorLine()
+	}
+
 	if err != nil && !wasStoppedIntentionally {
-		m.apacheErr = err.Error()
-		m.logEvent("Apache exited unexpectedly: " + err.Error())
+		if stderrMsg != "" {
+			m.apacheErr = fmt.Sprintf("%v — %s", err, stderrMsg)
+		} else {
+			m.apacheErr = err.Error()
+		}
+		m.logEvent("Apache exited unexpectedly: " + m.apacheErr)
 	} else {
 		m.logEvent("Apache stopped")
 	}
+
+	// If Apache ran smoothly for >15 seconds before exiting, reset rapid restart counter
+	if runDuration > 15*time.Second {
+		m.apacheRest = 0
+	}
+
 	autoHeal := m.cfg.AutoHeal && !wasStoppedIntentionally
+	switchPort := false
 	if autoHeal {
 		m.apacheRest++
-		m.logEvent("Auto-Heal: Restarting Apache in 2s...")
+		lowerReason := strings.ToLower(m.apacheErr)
+		if strings.Contains(lowerReason, "make_sock") ||
+			strings.Contains(lowerReason, "could not bind") ||
+			strings.Contains(lowerReason, "10048") ||
+			strings.Contains(lowerReason, "10013") ||
+			(runDuration < 2*time.Second && m.apacheRest == 2) {
+			switchPort = true
+		}
+
+		if m.apacheRest > 3 && runDuration < 4*time.Second {
+			autoHeal = false
+			m.logEvent("⚠️ Auto-Heal circuit breaker: توقف التكرار التلقائي بعد 3 محاولات فاشلة لحماية الجهاز. السبب: " + m.apacheErr)
+		} else {
+			m.logEvent(fmt.Sprintf("Auto-Heal: Restarting Apache in 2s (attempt %d/3)...", m.apacheRest))
+		}
 	}
 	m.mu.Unlock()
+
+	if switchPort {
+		m.mu.Lock()
+		curPort, _ := strconv.Atoi(m.cfg.ApachePort)
+		if curPort < 8080 {
+			curPort = 8081
+		} else {
+			curPort++
+		}
+		nextPort, _ := profiler.FindSmartPort(strconv.Itoa(curPort), []string{"8082", "8085", "8090", "8888"}, curPort)
+		m.logEvent(fmt.Sprintf("Smart Port Recovery: Switching Apache port %s -> %s", m.cfg.ApachePort, nextPort))
+		m.cfg.ApachePort = nextPort
+		_ = m.cfg.Save()
+		m.mu.Unlock()
+	}
 
 	if autoHeal {
 		time.Sleep(2 * time.Second)
@@ -356,16 +432,40 @@ func (m *Manager) watchApache(cmd *exec.Cmd) {
 	}
 }
 
+func (m *Manager) readLastApacheErrorLine() string {
+	logPath := filepath.Join(m.cfg.RootDir, "logs", "apache_error.log")
+	data, err := os.ReadFile(logPath)
+	if err != nil || len(data) == 0 {
+		return ""
+	}
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := strings.TrimSpace(lines[i])
+		if line != "" {
+			return line
+		}
+	}
+	return ""
+}
+
 func (m *Manager) StopApache() error {
 	m.mu.Lock()
 	m.stopApache = true
+	m.apacheRest = 0
 	cmd := m.apacheCmd
 	m.apacheCmd = nil
 	m.mu.Unlock()
 
 	if cmd != nil && cmd.Process != nil {
+		// Kill entire Apache parent + worker process tree on Windows so port is released immediately
+		killCmd := exec.Command("taskkill", "/F", "/T", "/PID", strconv.Itoa(cmd.Process.Pid))
+		killCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+		_ = killCmd.Run()
 		_ = cmd.Process.Kill()
 	}
+
+	// Clean up stale httpd.pid if left behind
+	_ = os.Remove(filepath.Join(m.cfg.RootDir, "bin", "apache", "logs", "httpd.pid"))
 	return nil
 }
 
@@ -418,6 +518,7 @@ func (m *Manager) watchMySQL(cmd *exec.Cmd) {
 	err := cmd.Wait()
 	m.mu.Lock()
 	wasStoppedIntentionally := m.stopMySQL
+	runDuration := time.Since(m.mysqlStart)
 	m.mysqlCmd = nil
 	if err != nil && !wasStoppedIntentionally {
 		m.mysqlErr = err.Error()
@@ -425,10 +526,18 @@ func (m *Manager) watchMySQL(cmd *exec.Cmd) {
 	} else {
 		m.logEvent("MySQL stopped")
 	}
+	if runDuration > 15*time.Second {
+		m.mysqlRest = 0
+	}
 	autoHeal := m.cfg.AutoHeal && !wasStoppedIntentionally
 	if autoHeal {
 		m.mysqlRest++
-		m.logEvent("Auto-Heal: Restarting MySQL in 2s...")
+		if m.mysqlRest > 3 && runDuration < 4*time.Second {
+			autoHeal = false
+			m.logEvent("⚠️ Auto-Heal circuit breaker: توقف إعادة تشغيل MySQL بعد 3 محاولات متتالية.")
+		} else {
+			m.logEvent(fmt.Sprintf("Auto-Heal: Restarting MySQL in 2s (attempt %d/3)...", m.mysqlRest))
+		}
 	}
 	m.mu.Unlock()
 
@@ -441,11 +550,15 @@ func (m *Manager) watchMySQL(cmd *exec.Cmd) {
 func (m *Manager) StopMySQL() error {
 	m.mu.Lock()
 	m.stopMySQL = true
+	m.mysqlRest = 0
 	cmd := m.mysqlCmd
 	m.mysqlCmd = nil
 	m.mu.Unlock()
 
 	if cmd != nil && cmd.Process != nil {
+		killCmd := exec.Command("taskkill", "/F", "/T", "/PID", strconv.Itoa(cmd.Process.Pid))
+		killCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+		_ = killCmd.Run()
 		_ = cmd.Process.Kill()
 	}
 	return nil

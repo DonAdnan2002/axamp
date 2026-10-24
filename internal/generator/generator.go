@@ -61,23 +61,34 @@ func resolvePHPDir(cfg *config.AppConfig) string {
 	return base
 }
 
-func findApachePHPModule(phpDir string) string {
-	candidates := []string{
-		"php8apache2_4.dll",
-		"php7apache2_4.dll",
+func findApachePHPModule(phpDir string) (string, string) {
+	candidates := []struct {
+		dll string
+		mod string
+	}{
+		{"php8apache2_4.dll", "php_module"},
+		{"php7apache2_4.dll", "php7_module"},
+		{"php5apache2_4.dll", "php5_module"},
 	}
 	for _, c := range candidates {
-		full := filepath.Join(phpDir, c)
+		full := filepath.Join(phpDir, c.dll)
 		if _, err := os.Stat(full); err == nil {
-			return slashPath(full)
+			return slashPath(full), c.mod
 		}
 	}
-	return slashPath(filepath.Join(phpDir, "php8apache2_4.dll"))
+	return "", ""
 }
 
 func GenerateHttpdConf(cfg *config.AppConfig, hw profiler.HardwareProfile) error {
 	root := slashPath(cfg.RootDir)
-	phpDll := findApachePHPModule(resolvePHPDir(cfg))
+	phpDll, phpModName := findApachePHPModule(resolvePHPDir(cfg))
+	phpIntegrationBlock := "# PHP Integration (Skipped: php.exe / php8apache2_4.dll not installed yet in bin/php)"
+	if phpDll != "" {
+		phpIntegrationBlock = fmt.Sprintf(`# PHP Integration
+LoadModule %s "%s"
+PHPIniDir "%s/conf"
+AddHandler application/x-httpd-php .php`, phpModName, phpDll, root)
+	}
 	isDev := cfg.Mode == config.DevMode
 
 	logLevel := "warn"
@@ -163,10 +174,7 @@ LoadModule setenvif_module modules/mod_setenvif.so
 LoadModule socache_shmcb_module modules/mod_socache_shmcb.so
 LoadModule ssl_module modules/mod_ssl.so
 
-# PHP Integration
-LoadModule php_module "%s"
-PHPIniDir "%s/conf"
-AddHandler application/x-httpd-php .php
+%s
 
 <IfModule unixd_module>
     User daemon
@@ -232,8 +240,7 @@ LogLevel %s
 		cfg.ApachePort,
 		serverTokens,
 		serverSig,
-		phpDll,
-		root,
+		phpIntegrationBlock,
 		root,
 		root,
 		dirOptions,
@@ -275,12 +282,26 @@ func GeneratePhpIni(cfg *config.AppConfig, hw profiler.HardwareProfile) error {
 	}
 
 	var extLines strings.Builder
+	extDir := filepath.Join(resolvePHPDir(cfg), "ext")
 	for ext, enabled := range cfg.PHPExtensions {
+		cleanExt := strings.TrimSpace(ext)
+		cleanExt = strings.TrimPrefix(cleanExt, "php_")
+		cleanExt = strings.TrimSuffix(cleanExt, ".dll")
+		dllPath := filepath.Join(extDir, "php_"+cleanExt+".dll")
 		if enabled {
-			extLines.WriteString(fmt.Sprintf("extension=%s\n", ext))
+			if _, err := os.Stat(dllPath); err == nil {
+				extLines.WriteString(fmt.Sprintf("extension=%s\n", cleanExt))
+			} else {
+				extLines.WriteString(fmt.Sprintf(";extension=%s ; (skipped: php_%s.dll not found in ext/)\n", cleanExt, cleanExt))
+			}
 		} else {
-			extLines.WriteString(fmt.Sprintf(";extension=%s\n", ext))
+			extLines.WriteString(fmt.Sprintf(";extension=%s\n", cleanExt))
 		}
+	}
+
+	opcacheLine := fmt.Sprintf("opcache.enable=%s", opcacheEnable)
+	if _, err := os.Stat(filepath.Join(extDir, "php_opcache.dll")); err == nil {
+		opcacheLine = "zend_extension=opcache\n" + opcacheLine
 	}
 
 	ini := fmt.Sprintf(`; =====================================================================
@@ -327,7 +348,7 @@ fatal_error_backtraces = 0
 date.timezone = UTC
 
 [opcache]
-opcache.enable=%s
+%s
 opcache.enable_cli=0
 opcache.memory_consumption=128
 opcache.interned_strings_buffer=16
@@ -362,7 +383,7 @@ mysqli.default_host = 127.0.0.1
 		root,
 		root,
 		extLines.String(),
-		opcacheEnable,
+		opcacheLine,
 		opcacheRevalidate,
 		cfg.MySQLPort,
 	)
