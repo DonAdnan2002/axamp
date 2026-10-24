@@ -2,7 +2,8 @@
 *.exe
 !axamp-launcher.exe
 !AXAMP-v1.0.0-Setup.exe
-dist/AXAMP-v1.0.0-Full-Offline-Stack.zip
+!AXAMP-v1.1.0-Setup.exe
+dist/*-Full-Offline-Stack.zip
 bin/apache/
 bin/php/
 bin/mysql/

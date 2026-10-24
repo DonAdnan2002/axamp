@@ -1,6 +1,6 @@
-# 🚀 AXAMP v1.0.0-stable
+# 🚀 AXAMP v1.1.0-stable
 > **The Smart, Lightweight, and Standalone XAMPP Alternative Powered by Go**  
-> **بديل XAMPP الذكي، المحمول، والمستقل بالكامل بلغة Go**
+> **بديل XAMPP الذكي، المحمول، والمستقل بالكامل بلغة Go — الإصدار 1.1**
 
 👨‍💻 **مبتكر النظام (System Creator):** **عدنان سلطان حسن (Adnan Sultan Hassan)** — [`donadnan2002@gmail.com`](mailto:donadnan2002@gmail.com)
 

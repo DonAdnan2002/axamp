@@ -55,7 +55,7 @@ func generatePIN() string {
 
 func DefaultConfig(rootDir string) *AppConfig {
 	return &AppConfig{
-		Version:                 "1.0.0-stable",
+		Version:                 "1.1.0-stable",
 		CreatorName:             "عدنان سلطان حسن (Adnan Sultan Hassan)",
 		CreatorEmail:            "donadnan2002@gmail.com",
 		RootDir:                 rootDir,
