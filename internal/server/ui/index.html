@@ -262,11 +262,16 @@ pre.log-viewer {
                     <span>🌐 خادم الويب Apache HTTP</span>
                     <span id="apache-badge" class="badge badge-stopped">متوقف</span>
                 </h3>
-                <p style="color:var(--text-muted);font-size:0.86rem;margin:6px 0 12px;">
-                    المنفذ الذكي النشط: <strong id="apache-port" style="color:var(--accent)">80</strong> |
+                <p style="color:var(--text-muted);font-size:0.86rem;margin:6px 0 10px;">
+                    المنفذ النشط: <strong id="apache-port" style="color:var(--accent)">80</strong> |
                     معرف العملية (PID): <strong id="apache-pid">-</strong> |
                     التعافي التلقائي: <strong id="apache-restarts">0</strong>
                 </p>
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;background:var(--bg-dark);padding:8px 10px;border-radius:10px;border:1px solid var(--border);">
+                    <span style="font-size:0.82rem;color:var(--text-muted);white-space:nowrap;">تغيير البورت:</span>
+                    <input type="text" id="dash-apache-port" placeholder="8080" style="width:90px;padding:6px 10px;text-align:center;font-weight:bold;direction:ltr;">
+                    <button class="btn btn-primary btn-sm" onclick="quickSaveAndRestartPort('apache')" style="flex:1;">💾 حفظ وإعادة تشغيل بالبورت الجديد</button>
+                </div>
                 <div id="apache-err" style="color:var(--warning);font-size:0.8rem;margin-bottom:10px;"></div>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
                     <button class="btn btn-primary" onclick="serviceAction('apache','start')">▶ تشغيل مباشر</button>
@@ -288,11 +293,16 @@ pre.log-viewer {
                     <span>🗄️ محرك قواعد البيانات MySQL / MariaDB</span>
                     <span id="mysql-badge" class="badge badge-stopped">متوقف</span>
                 </h3>
-                <p style="color:var(--text-muted);font-size:0.86rem;margin:6px 0 12px;">
-                    المنفذ الذكي النشط: <strong id="mysql-port" style="color:var(--accent)">3306</strong> |
+                <p style="color:var(--text-muted);font-size:0.86rem;margin:6px 0 10px;">
+                    المنفذ النشط: <strong id="mysql-port" style="color:var(--accent)">3306</strong> |
                     معرف العملية (PID): <strong id="mysql-pid">-</strong> |
                     التعافي التلقائي: <strong id="mysql-restarts">0</strong>
                 </p>
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;background:var(--bg-dark);padding:8px 10px;border-radius:10px;border:1px solid var(--border);">
+                    <span style="font-size:0.82rem;color:var(--text-muted);white-space:nowrap;">تغيير البورت:</span>
+                    <input type="text" id="dash-mysql-port" placeholder="3306" style="width:90px;padding:6px 10px;text-align:center;font-weight:bold;direction:ltr;">
+                    <button class="btn btn-primary btn-sm" onclick="quickSaveAndRestartPort('mysql')" style="flex:1;">💾 حفظ وإعادة تشغيل بالبورت الجديد</button>
+                </div>
                 <div id="mysql-err" style="color:var(--warning);font-size:0.8rem;margin-bottom:10px;"></div>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
                     <button class="btn btn-primary" onclick="serviceAction('mysql','start')">▶ تشغيل مباشر</button>
@@ -758,6 +768,8 @@ async function refreshState() {
         document.getElementById('lan-urls').textContent = ips;
 
         if (document.activeElement.tagName !== 'INPUT') {
+            document.getElementById('dash-apache-port').value = data.config.apache_port;
+            document.getElementById('dash-mysql-port').value = data.config.mysql_port;
             document.getElementById('set-apache-port').value = data.config.apache_port;
             document.getElementById('set-mysql-port').value = data.config.mysql_port;
             document.getElementById('set-autostart-win').checked = data.config.auto_start_windows;
@@ -1170,8 +1182,29 @@ async function clearLogs() {
     loadLogs();
 }
 
+async function quickSaveAndRestartPort(service) {
+    const payload = { quick_port_only: true };
+    if (service === 'apache') {
+        const p = document.getElementById('dash-apache-port').value.trim();
+        if (!p) return alert('الرجاء كتابة رقم المنفذ (Port) أولاً');
+        payload.apache_port = p;
+    } else if (service === 'mysql') {
+        const p = document.getElementById('dash-mysql-port').value.trim();
+        if (!p) return alert('الرجاء كتابة رقم المنفذ (Port) أولاً');
+        payload.mysql_port = p;
+    }
+    const res = await api('/api/settings', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    });
+    if (res && !res.ok && res.error) {
+        alert('تنبيه أثناء إعادة التشغيل: ' + res.error);
+    }
+    refreshState();
+}
+
 async function saveSettings() {
-    await api('/api/settings', {
+    const res = await api('/api/settings', {
         method: 'POST',
         body: JSON.stringify({
             apache_port: document.getElementById('set-apache-port').value.trim(),
@@ -1182,7 +1215,11 @@ async function saveSettings() {
             remote_access: document.getElementById('set-remote').checked,
         })
     });
-    alert('تم حفظ الإعدادات وإعادة توليد ملفات التكوين الذكية بنجاح!');
+    if (res && !res.ok && res.error) {
+        alert('تم الحفظ مع تنبيه: ' + res.error);
+    } else {
+        alert('تم حفظ الإعدادات وإعادة تشغيل الخدمات بالمنفذ الجديد بنجاح!');
+    }
     refreshState();
 }
 

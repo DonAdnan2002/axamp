@@ -563,6 +563,7 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
+		QuickPortOnly     bool   `json:"quick_port_only"`
 		ApachePort        string `json:"apache_port"`
 		MySQLPort         string `json:"mysql_port"`
 		AutoStartWindows  bool   `json:"auto_start_windows"`
@@ -573,17 +574,39 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = json.NewDecoder(r.Body).Decode(&req)
 
+	var actionErr error
 	if req.RegeneratePIN {
 		s.cfg.RegeneratePIN()
-	} else {
-		portChangedApache := req.ApachePort != "" && req.ApachePort != s.cfg.ApachePort
-		portChangedMySQL := req.MySQLPort != "" && req.MySQLPort != s.cfg.MySQLPort
-
+	} else if req.QuickPortOnly {
+		restartApache := false
+		restartMySQL := false
 		if req.ApachePort != "" {
-			s.cfg.ApachePort = req.ApachePort
+			s.cfg.ApachePort = strings.TrimSpace(req.ApachePort)
+			restartApache = true
 		}
 		if req.MySQLPort != "" {
-			s.cfg.MySQLPort = req.MySQLPort
+			s.cfg.MySQLPort = strings.TrimSpace(req.MySQLPort)
+			restartMySQL = true
+		}
+		_ = s.cfg.Save()
+		hw := profiler.InspectSystem()
+		_ = generator.GenerateAll(s.cfg, hw)
+		if restartApache {
+			_ = s.sup.StopApache()
+			actionErr = s.sup.StartApache()
+		}
+		if restartMySQL {
+			_ = s.sup.StopMySQL()
+			if err := s.sup.StartMySQL(); err != nil && actionErr == nil {
+				actionErr = err
+			}
+		}
+	} else {
+		if req.ApachePort != "" {
+			s.cfg.ApachePort = strings.TrimSpace(req.ApachePort)
+		}
+		if req.MySQLPort != "" {
+			s.cfg.MySQLPort = strings.TrimSpace(req.MySQLPort)
 		}
 		s.cfg.AutoStartWindows = req.AutoStartWindows
 		s.cfg.AutoStartServices = req.AutoStartServices
@@ -594,20 +617,27 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		hw := profiler.InspectSystem()
 		_ = generator.GenerateAll(s.cfg, hw)
 
-		st := s.sup.Status()
-		if portChangedApache {
+		if req.ApachePort != "" {
 			_ = s.sup.StopApache()
-			_ = s.sup.StartApache()
+			actionErr = s.sup.StartApache()
 		}
-		if portChangedMySQL && st["mysql"].State == supervisor.StateRunning {
+		if req.MySQLPort != "" {
 			_ = s.sup.StopMySQL()
-			_ = s.sup.StartMySQL()
+			if err := s.sup.StartMySQL(); err != nil && actionErr == nil {
+				actionErr = err
+			}
 		}
 	}
 
+	errMsg := ""
+	if actionErr != nil {
+		errMsg = actionErr.Error()
+	}
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"ok":     true,
-		"config": s.cfg,
+		"ok":       actionErr == nil,
+		"error":    errMsg,
+		"config":   s.cfg,
+		"services": s.sup.Status(),
 	})
 }
 
