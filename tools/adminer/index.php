@@ -29,10 +29,10 @@ try {
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<title>AXAMP SQL Studio (Adminer Lite)</title>
+<title>AXAMP SQL Studio | ابتكار: عدنان سلطان حسن</title>
 <style>
 body { font-family: system-ui, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; display: flex; height: 100vh; }
-.sidebar { width: 250px; background: #1e293b; padding: 20px; border-left: 1px solid #334155; overflow-y: auto; }
+.sidebar { width: 250px; background: #1e293b; padding: 20px; border-left: 1px solid #334155; overflow-y: auto; display: flex; flex-direction: column; }
 .main { flex: 1; padding: 24px; overflow-y: auto; }
 a { color: #38bdf8; text-decoration: none; display: block; padding: 8px; border-radius: 6px; }
 a:hover, a.active { background: #334155; }
@@ -49,6 +49,9 @@ th { background: #0f172a; color: #38bdf8; }
     <?php foreach ($dbs as $d): ?>
         <a class="<?= $d === $db ? 'active' : '' ?>" href="?db=<?= urlencode($d) ?>"><?= htmlspecialchars($d) ?></a>
     <?php endforeach; ?>
+    <div style="margin-top:auto;padding-top:14px;border-top:1px solid #334155;font-size:0.78rem;color:#94a3b8;">
+        مبتكر النظام: <strong style="color:#38bdf8;">عدنان سلطان حسن</strong><br>donadnan2002@gmail.com
+    </div>
 </div>
 <div class="main">
     <h2>AXAMP SQL Studio <?= $db ? "— [$db]" : "" ?></h2>

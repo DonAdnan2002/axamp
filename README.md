@@ -2,6 +2,10 @@
 > **The Smart, Lightweight, and Standalone XAMPP Alternative Powered by Go**  
 > **بديل XAMPP الذكي، المحمول، والمستقل بالكامل بلغة Go**
 
+👨‍💻 **مبتكر النظام (System Creator):** **عدنان سلطان حسن (Adnan Sultan Hassan)** — [`donadnan2002@gmail.com`](mailto:donadnan2002@gmail.com)
+
+---
+
 **AXAMP** is an enterprise-grade, offline-first local server stack designed for developers and isolated environments (Air-gapped networks). It replaces heavy traditional tools with a lightning-fast, self-contained Go binary featuring smart hardware auto-tuning, hybrid package management, true Windows services integration, XAMPP migration wizard, ODBC manager, and automated compressed backups.
 
 ---

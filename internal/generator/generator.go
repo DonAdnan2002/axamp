@@ -440,19 +440,20 @@ long_query_time=2
 
 func ensureDefaultHtdocs(cfg *config.AppConfig) {
 	indexPath := filepath.Join(cfg.RootDir, "htdocs", "index.php")
-	if _, err := os.Stat(indexPath); os.IsNotExist(err) {
-		welcomePHP := `<?php
+	welcomePHP := `<?php
 $mode = getenv('AXAMP_MODE') ?: 'Smart Dynamic Mode';
 ?>
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>AXAMP - Smart Local Server</title>
+    <title>AXAMP - Smart Local Server | ابتكار: عدنان سلطان حسن</title>
     <style>
         body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 40px; }
         .card { max-width: 900px; margin: 0 auto; background: #1e293b; border-radius: 16px; padding: 32px; border: 1px solid #334155; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.4); }
         h1 { color: #38bdf8; margin-top: 0; }
+        .creator-badge { background: rgba(56,189,248,0.12); border: 1px solid #0284c7; padding: 10px 16px; border-radius: 10px; margin-bottom: 18px; display: inline-block; font-size: 0.92rem; color: #e0f2fe; }
+        .creator-badge a { color: #38bdf8; text-decoration: none; font-weight: bold; }
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin: 24px 0; }
         .stat { background: #0f172a; padding: 16px; border-radius: 12px; border: 1px solid #1e293b; }
         .stat span { display: block; color: #94a3b8; font-size: 0.85rem; }
@@ -464,6 +465,9 @@ $mode = getenv('AXAMP_MODE') ?: 'Smart Dynamic Mode';
 <body>
     <div class="card">
         <h1>🚀 أهلاً بك في AXAMP Smart Server</h1>
+        <div class="creator-badge">
+            👨‍💻 مبتكر النظام: <strong>عدنان سلطان حسن</strong> — <a href="mailto:donadnan2002@gmail.com">donadnan2002@gmail.com</a>
+        </div>
         <p>الخادم المحلي الذكي والمحمول يعمل بنجاح من المسار: <code><?php echo __DIR__; ?></code></p>
         <div class="grid">
             <div class="stat"><span>إصدار PHP</span><strong><?php echo PHP_VERSION; ?></strong></div>
@@ -480,8 +484,7 @@ $mode = getenv('AXAMP_MODE') ?: 'Smart Dynamic Mode';
     </div>
 </body>
 </html>`
-		_ = os.WriteFile(indexPath, []byte(welcomePHP), 0644)
-	}
+	_ = os.WriteFile(indexPath, []byte(welcomePHP), 0644)
 }
 
 func ensureDatabaseTools(cfg *config.AppConfig) {
@@ -516,8 +519,7 @@ exit;
 
 	// 2. Built-in lightweight PHP SQL studio in /adminer/index.php
 	adminerIndex := filepath.Join(cfg.RootDir, "tools", "adminer", "index.php")
-	if _, err := os.Stat(adminerIndex); os.IsNotExist(err) {
-		liteStudio := fmt.Sprintf(`<?php
+	liteStudio := fmt.Sprintf(`<?php
 $host = '127.0.0.1';
 $port = '%s';
 $user = $_POST['user'] ?? 'root';
@@ -548,10 +550,10 @@ try {
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<title>AXAMP SQL Studio (Adminer Lite)</title>
+<title>AXAMP SQL Studio | ابتكار: عدنان سلطان حسن</title>
 <style>
 body { font-family: system-ui, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; display: flex; height: 100vh; }
-.sidebar { width: 250px; background: #1e293b; padding: 20px; border-left: 1px solid #334155; overflow-y: auto; }
+.sidebar { width: 250px; background: #1e293b; padding: 20px; border-left: 1px solid #334155; overflow-y: auto; display: flex; flex-direction: column; }
 .main { flex: 1; padding: 24px; overflow-y: auto; }
 a { color: #38bdf8; text-decoration: none; display: block; padding: 8px; border-radius: 6px; }
 a:hover, a.active { background: #334155; }
@@ -568,6 +570,9 @@ th { background: #0f172a; color: #38bdf8; }
     <?php foreach ($dbs as $d): ?>
         <a class="<?= $d === $db ? 'active' : '' ?>" href="?db=<?= urlencode($d) ?>"><?= htmlspecialchars($d) ?></a>
     <?php endforeach; ?>
+    <div style="margin-top:auto;padding-top:14px;border-top:1px solid #334155;font-size:0.78rem;color:#94a3b8;">
+        مبتكر النظام: <strong style="color:#38bdf8;">عدنان سلطان حسن</strong><br>donadnan2002@gmail.com
+    </div>
 </div>
 <div class="main">
     <h2>AXAMP SQL Studio <?= $db ? "— [$db]" : "" ?></h2>
@@ -589,6 +594,5 @@ th { background: #0f172a; color: #38bdf8; }
 </div>
 </body>
 </html>`, cfg.MySQLPort)
-		_ = os.WriteFile(adminerIndex, []byte(liteStudio), 0644)
-	}
+	_ = os.WriteFile(adminerIndex, []byte(liteStudio), 0644)
 }

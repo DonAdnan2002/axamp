@@ -17,9 +17,11 @@ const (
 )
 
 type AppConfig struct {
-	mu                     sync.RWMutex    `json:"-"`
-	Version                string          `json:"version"`
-	RootDir                string          `json:"root_dir"`
+	mu                      sync.RWMutex    `json:"-"`
+	Version                 string          `json:"version"`
+	CreatorName             string          `json:"creator_name"`
+	CreatorEmail            string          `json:"creator_email"`
+	RootDir                 string          `json:"root_dir"`
 	Mode                   StackMode       `json:"mode"`
 	ApachePort             string          `json:"apache_port"`
 	ApacheSSLPort          string          `json:"apache_ssl_port"`
@@ -54,6 +56,8 @@ func generatePIN() string {
 func DefaultConfig(rootDir string) *AppConfig {
 	return &AppConfig{
 		Version:                 "1.0.0-stable",
+		CreatorName:             "عدنان سلطان حسن (Adnan Sultan Hassan)",
+		CreatorEmail:            "donadnan2002@gmail.com",
 		RootDir:                 rootDir,
 		Mode:                    DevMode,
 		ApachePort:              "80",
@@ -109,6 +113,8 @@ func LoadOrInit(rootDir string) (*AppConfig, error) {
 	}
 	cfg.RootDir = rootDir
 	cfg.Version = "1.0.0-stable"
+	cfg.CreatorName = "عدنان سلطان حسن (Adnan Sultan Hassan)"
+	cfg.CreatorEmail = "donadnan2002@gmail.com"
 	if cfg.RemotePIN == "" {
 		cfg.RemotePIN = generatePIN()
 	}

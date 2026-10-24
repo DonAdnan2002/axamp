@@ -114,6 +114,51 @@ func (m *Manager) MySQLBinary() string {
 	return filepath.Join(m.cfg.RootDir, "bin", "mysql", "bin", "mysqld.exe")
 }
 
+// buildIsolatedEnv ensures Apache, PHP, and MySQL load their DLLs and OpenSSL config exclusively from AXAMP's portable directory
+func (m *Manager) buildIsolatedEnv() []string {
+	phpDir := filepath.Join(m.cfg.RootDir, "bin", "php")
+	apacheBin := filepath.Join(m.cfg.RootDir, "bin", "apache", "bin")
+	mysqlBin := filepath.Join(m.cfg.RootDir, "bin", "mysql", "bin")
+	confDir := filepath.Join(m.cfg.RootDir, "conf")
+
+	opensslCnf := filepath.Join(m.cfg.RootDir, "bin", "apache", "conf", "openssl.cnf")
+	if _, err := os.Stat(opensslCnf); os.IsNotExist(err) {
+		opensslCnf = filepath.Join(phpDir, "extras", "ssl", "openssl.cnf")
+	}
+
+	sysRoot := os.Getenv("SystemRoot")
+	if sysRoot == "" {
+		sysRoot = `C:\Windows`
+	}
+	cleanPath := strings.Join([]string{
+		phpDir,
+		apacheBin,
+		mysqlBin,
+		filepath.Join(sysRoot, "System32"),
+		sysRoot,
+		filepath.Join(sysRoot, "System32", "Wbem"),
+	}, ";")
+
+	var env []string
+	for _, kv := range os.Environ() {
+		upper := strings.ToUpper(kv)
+		if strings.HasPrefix(upper, "PATH=") ||
+			strings.HasPrefix(upper, "OPENSSL_CONF=") ||
+			strings.HasPrefix(upper, "PHPRC=") {
+			continue
+		}
+		env = append(env, kv)
+	}
+
+	env = append(env,
+		"PATH="+cleanPath,
+		"PHPRC="+confDir,
+		"OPENSSL_CONF="+opensslCnf,
+		"AXAMP_CREATOR=Adnan Sultan Hassan (donadnan2002@gmail.com)",
+	)
+	return env
+}
+
 func queryWinServiceState(serviceName string) (installed bool, running bool) {
 	cmd := exec.Command("sc.exe", "query", serviceName)
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
@@ -268,6 +313,7 @@ func (m *Manager) StartApache() error {
 	confFile := filepath.Join(m.cfg.RootDir, "conf", "httpd.conf")
 	cmd := exec.Command(bin, "-f", confFile)
 	cmd.Dir = filepath.Join(m.cfg.RootDir, "bin", "apache")
+	cmd.Env = m.buildIsolatedEnv()
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 
 	if err := cmd.Start(); err != nil {
@@ -349,6 +395,7 @@ func (m *Manager) StartMySQL() error {
 	confFile := filepath.Join(m.cfg.RootDir, "conf", "my.ini")
 	cmd := exec.Command(bin, "--defaults-file="+confFile)
 	cmd.Dir = filepath.Join(m.cfg.RootDir, "bin", "mysql")
+	cmd.Env = m.buildIsolatedEnv()
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 
 	if err := cmd.Start(); err != nil {
