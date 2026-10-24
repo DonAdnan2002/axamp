@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AXAMP — Smart Portable Server & Control Center</title>
+<style>
+:root {
+    --bg-dark: #0b1120;
+    --bg-card: #151f32;
+    --bg-hover: #1e293b;
+    --border: #26354d;
+    --accent: #38bdf8;
+    --accent-dark: #0284c7;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --text-main: #f1f5f9;
+    --text-muted: #94a3b8;
+}
+* { box-sizing: border-box; }
+body {
+    margin: 0;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg-dark);
+    color: var(--text-main);
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+/* Sidebar */
+.sidebar {
+    width: 270px;
+    background: var(--bg-card);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 20px 14px;
+}
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 12px 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 14px;
+}
+.brand-logo {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #38bdf8, #6366f1);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 1.2rem; color: #fff;
+}
+.brand-text h1 { margin: 0; font-size: 1.2rem; letter-spacing: 0.5px; }
+.brand-text span { font-size: 0.76rem; color: var(--text-muted); }
+
+.nav-btn {
+    display: flex; align-items: center; gap: 10px;
+    width: 100%; padding: 10px 14px; margin-bottom: 5px;
+    border: none; border-radius: 10px;
+    background: transparent; color: var(--text-muted);
+    font-size: 0.91rem; font-weight: 600; text-align: right;
+    cursor: pointer; transition: all 0.15s;
+}
+.nav-btn:hover { background: var(--bg-hover); color: var(--text-main); }
+.nav-btn.active { background: var(--accent-dark); color: #fff; }
+
+.mode-switch-box {
+    margin-top: auto;
+    background: var(--bg-dark);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+}
+.mode-switch-box label { display: block; font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px; }
+.mode-pills { display: flex; gap: 6px; }
+.mode-pill {
+    flex: 1; padding: 8px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--bg-card); color: var(--text-muted); cursor: pointer;
+    font-size: 0.8rem; font-weight: 700; text-align: center;
+}
+.mode-pill.active-dev { background: rgba(56,189,248,0.18); border-color: var(--accent); color: var(--accent); }
+.mode-pill.active-prod { background: rgba(34,197,94,0.18); border-color: var(--success); color: var(--success); }
+
+/* Main Content */
+.main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    padding: 24px 30px;
+}
+.topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 22px; gap: 12px; flex-wrap: wrap;
+}
+.quick-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn {
+    padding: 9px 14px; border-radius: 9px; border: 1px solid var(--border);
+    background: var(--bg-card); color: var(--text-main);
+    font-weight: 600; font-size: 0.84rem; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: all 0.15s;
+}
+.btn:hover { background: var(--bg-hover); border-color: var(--accent); }
+.btn-primary { background: var(--accent-dark); border-color: var(--accent-dark); color: #fff; }
+.btn-primary:hover { background: #0369a1; }
+.btn-success { background: #16a34a; border-color: #16a34a; color: #fff; }
+.btn-danger { background: #dc2626; border-color: #dc2626; color: #fff; }
+.btn-sm { padding: 6px 10px; font-size: 0.78rem; }
+
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 18px; margin-bottom: 20px; }
+.grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-bottom: 20px; }
+
+.card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+}
+.card h3 { margin: 0 0 12px 0; font-size: 1.05rem; display: flex; align-items: center; justify-content: space-between; }
+
+.badge {
+    padding: 4px 10px; border-radius: 99px; font-size: 0.75rem; font-weight: 700;
+}
+.badge-running { background: rgba(34,197,94,0.18); color: var(--success); }
+.badge-stopped { background: rgba(148,163,184,0.15); color: var(--text-muted); }
+.badge-missing { background: rgba(245,158,11,0.18); color: var(--warning); }
+
+.stat-card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 16px;
+}
+.stat-card span { font-size: 0.78rem; color: var(--text-muted); display: block; }
+.stat-card strong { font-size: 1.15rem; color: var(--accent); margin-top: 4px; display: block; }
+.progress-bar {
+    width: 100%; height: 7px; background: var(--bg-dark);
+    border-radius: 99px; overflow: hidden; margin-top: 8px;
+}
+.progress-fill {
+    height: 100%; background: linear-gradient(90deg, #38bdf8, #22c55e);
+    width: 0%; transition: width 0.3s ease;
+}
+
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+.ext-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px;
+}
+.ext-item {
+    background: var(--bg-dark); border: 1px solid var(--border);
+    border-radius: 9px; padding: 10px 12px;
+    display: flex; align-items: center; justify-content: space-between;
+}
+
+input[type="text"], select {
+    background: var(--bg-dark); border: 1px solid var(--border);
+    color: var(--text-main); padding: 9px 12px; border-radius: 8px;
+    width: 100%; font-size: 0.88rem;
+}
+table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+th, td { padding: 10px 12px; border-bottom: 1px solid var(--border); text-align: right; font-size: 0.88rem; }
+th { color: var(--accent); background: rgba(15,23,42,0.5); }
+
+pre.log-viewer {
+    background: #070b14; color: #38bdf8; border: 1px solid var(--border);
+    padding: 14px; border-radius: 10px; height: 320px; overflow-y: auto;
+    font-family: Consolas, monospace; font-size: 0.82rem; direction: ltr; text-align: left;
+}
+.alert-warn {
+    background: rgba(245,158,11,0.14); border: 1px solid var(--warning);
+    color: #fcd34d; padding: 12px 16px; border-radius: 10px; margin-bottom: 14px; font-size: 0.88rem;
+}
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+    <div class="brand">
+        <div class="brand-logo">AX</div>
+        <div class="brand-text">
+            <h1>AXAMP</h1>
+            <span>Smart Local Server</span>
+        </div>
+    </div>
+
+    <button class="nav-btn active" onclick="switchTab('dashboard', this)">⚡ لوحة التحكم والخدمات</button>
+    <button class="nav-btn" onclick="switchTab('packages', this)">📥 مدير الحزم الهجين (Binaries)</button>
+    <button class="nav-btn" onclick="switchTab('database', this)">🗄️ قواعد البيانات و phpMyAdmin</button>
+    <button class="nav-btn" onclick="switchTab('php', this)">🐘 إعدادات PHP والامتدادات</button>
+    <button class="nav-btn" onclick="switchTab('odbc', this)">🔌 مدير مصادر بيانات ODBC</button>
+    <button class="nav-btn" onclick="switchTab('migrate', this)">📦 الترقية من XAMPP قديم</button>
+    <button class="nav-btn" onclick="switchTab('vhosts', this)">🌐 النطاقات المحلية (.test)</button>
+    <button class="nav-btn" onclick="switchTab('logs', this)">📜 السجلات الحية (Live Logs)</button>
+    <button class="nav-btn" onclick="switchTab('remote', this)">🛡️ الوصول البعيد والإعدادات</button>
+
+    <div class="mode-switch-box">
+        <label>نمط تشغيل السيرفر الحالي:</label>
+        <div class="mode-pills">
+            <div id="pill-dev" class="mode-pill active-dev" onclick="setMode('development')">تطوير (Dev)</div>
+            <div id="pill-prod" class="mode-pill" onclick="setMode('production')">إنتاجية (Prod)</div>
+        </div>
+    </div>
+</aside>
+
+<main class="main">
+    <div class="topbar">
+        <div>
+            <h2 style="margin:0;font-size:1.35rem;" id="page-title">لوحة التحكم الذكية</h2>
+            <small style="color:var(--text-muted);" id="root-path-label">جاري الفحص...</small>
+        </div>
+        <div class="quick-actions">
+            <button class="btn btn-success" onclick="serviceAction('all','start')">▶ تشغيل الكل</button>
+            <button class="btn btn-danger" onclick="serviceAction('all','stop')">⏹ إيقاف الكل</button>
+            <button class="btn" onclick="quickOpen('htdocs')">📂 مجلد htdocs</button>
+            <button class="btn" onclick="quickOpen('localhost')">🌍 فتح localhost</button>
+            <button class="btn btn-primary" onclick="quickOpen('adminer')">⚡ SQL Studio</button>
+            <button class="btn" onclick="quickOpen('phpmyadmin')">🐬 phpMyAdmin</button>
+        </div>
+    </div>
+
+    <!-- TAB 1: DASHBOARD -->
+    <section id="tab-dashboard" class="tab-pane active">
+        <div class="grid-4">
+            <div class="stat-card">
+                <span>ذاكرة الحاسبة الحية (RAM)</span>
+                <strong id="hw-ram">--</strong>
+                <div class="progress-bar"><div id="ram-bar" class="progress-fill"></div></div>
+            </div>
+            <div class="stat-card">
+                <span>أنوية المعالج (CPU Cores)</span>
+                <strong id="hw-cpu">--</strong>
+                <div class="progress-bar"><div class="progress-fill" style="width:100%"></div></div>
+            </div>
+            <div class="stat-card">
+                <span>تخصيص PHP Memory</span>
+                <strong id="hw-php-mem">--</strong>
+            </div>
+            <div class="stat-card">
+                <span>تخصيص MySQL InnoDB</span>
+                <strong id="hw-innodb">--</strong>
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <!-- Apache Card -->
+            <div class="card">
+                <h3>
+                    <span>🌐 خادم الويب Apache HTTP</span>
+                    <span id="apache-badge" class="badge badge-stopped">متوقف</span>
+                </h3>
+                <p style="color:var(--text-muted);font-size:0.86rem;margin:6px 0 12px;">
+                    المنفذ الذكي النشط: <strong id="apache-port" style="color:var(--accent)">80</strong> |
+                    معرف العملية (PID): <strong id="apache-pid">-</strong> |
+                    التعافي التلقائي: <strong id="apache-restarts">0</strong>
+                </p>
+                <div id="apache-err" style="color:var(--warning);font-size:0.8rem;margin-bottom:10px;"></div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+                    <button class="btn btn-primary" onclick="serviceAction('apache','start')">▶ تشغيل مباشر</button>
+                    <button class="btn" onclick="serviceAction('apache','restart')">🔄 إعادة تشغيل</button>
+                    <button class="btn btn-danger" onclick="serviceAction('apache','stop')">⏹ إيقاف</button>
+                </div>
+                <div style="border-top:1px solid var(--border);padding-top:10px;display:flex;align-items:center;justify-content:space-between;">
+                    <small style="color:var(--text-muted);">خدمة نظام ويندوز (<code>AXAMP_Apache</code>): <strong id="apache-winsvc">غير مثبتة</strong></small>
+                    <div style="display:flex;gap:6px;">
+                        <button class="btn btn-sm" onclick="winServiceAction('apache','install')">تثبيت كخدمة</button>
+                        <button class="btn btn-sm" onclick="winServiceAction('apache','remove')">إلغاء الخدمة</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MySQL Card -->
+            <div class="card">
+                <h3>
+                    <span>🗄️ محرك قواعد البيانات MySQL / MariaDB</span>
+                    <span id="mysql-badge" class="badge badge-stopped">متوقف</span>
+                </h3>
+                <p style="color:var(--text-muted);font-size:0.86rem;margin:6px 0 12px;">
+                    المنفذ الذكي النشط: <strong id="mysql-port" style="color:var(--accent)">3306</strong> |
+                    معرف العملية (PID): <strong id="mysql-pid">-</strong> |
+                    التعافي التلقائي: <strong id="mysql-restarts">0</strong>
+                </p>
+                <div id="mysql-err" style="color:var(--warning);font-size:0.8rem;margin-bottom:10px;"></div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+                    <button class="btn btn-primary" onclick="serviceAction('mysql','start')">▶ تشغيل مباشر</button>
+                    <button class="btn" onclick="serviceAction('mysql','restart')">🔄 إعادة تشغيل</button>
+                    <button class="btn btn-danger" onclick="serviceAction('mysql','stop')">⏹ إيقاف</button>
+                </div>
+                <div style="border-top:1px solid var(--border);padding-top:10px;display:flex;align-items:center;justify-content:space-between;">
+                    <small style="color:var(--text-muted);">خدمة نظام ويندوز (<code>AXAMP_MySQL</code>): <strong id="mysql-winsvc">غير مثبتة</strong></small>
+                    <div style="display:flex;gap:6px;">
+                        <button class="btn btn-sm" onclick="winServiceAction('mysql','install')">تثبيت كخدمة</button>
+                        <button class="btn btn-sm" onclick="winServiceAction('mysql','remove')">إلغاء الخدمة</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <div class="card">
+                <h3>📂 مشاريع htdocs المكتشفة</h3>
+                <div id="projects-list" style="color:var(--text-muted);font-size:0.9rem;"></div>
+            </div>
+            <div class="card">
+                <h3>🔔 سجل الأحداث الذكي (Supervisor Events)</h3>
+                <div id="events-list" style="font-family:monospace;font-size:0.82rem;color:var(--text-muted);max-height:160px;overflow-y:auto;direction:ltr;text-align:left;"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- TAB 2: HYBRID PACKAGE MANAGER -->
+    <section id="tab-packages" class="tab-pane">
+        <div class="card" style="margin-bottom:18px;">
+            <h3>⚡ استنساخ المحركات بدون إنترنت من XAMPP محلي (Zero-Internet Offline Clone)</h3>
+            <p style="color:var(--text-muted);font-size:0.88rem;">
+                إذا كنت في بيئة معزولة عن الإنترنت (Air-gapped) ولديك مجلد XAMPP قديم على الجهاز أو على فلاش ميموري، اضغط هنا لاستنساخ محركات التشغيل (Apache + PHP + MySQL + phpMyAdmin) فوراً إلى <code>bin/</code>:
+            </p>
+            <div style="display:flex;gap:10px;margin-top:12px;">
+                <input type="text" id="clone-xampp-path" value="C:\xampp" placeholder="C:\xampp">
+                <button class="btn btn-success" onclick="cloneXamppBinaries()">⚡ استنساخ المحركات الآن (بدون إنترنت)</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>📥 إدارة الحزم الهجينة (تثبيت من ملف .ZIP محلي أو تحميل مباشر من الإنترنت)</h3>
+            <div id="packages-list" style="display:flex;flex-direction:column;gap:14px;margin-top:14px;"></div>
+        </div>
+    </section>
+
+    <!-- TAB 3: DATABASE & PHPMYADMIN -->
+    <section id="tab-database" class="tab-pane">
+        <div class="card" style="margin-bottom:18px;">
+            <h3>🐬 أدوات إدارة قواعد البيانات المدمجة (phpMyAdmin & Adminer Studio)</h3>
+            <p style="color:var(--text-muted);font-size:0.9rem;">
+                يقوم AXAMP بضبط ملف <code>tools/phpmyadmin/config.inc.php</code> تلقائياً ليتصل بمنفذ MySQL النشط دون تدخل يدوي، بالإضافة إلى توفير استوديو SQL خفيف مدمج.
+            </p>
+            <div style="display:flex;gap:10px;margin-top:12px;">
+                <button class="btn btn-primary" onclick="quickOpen('adminer')">⚡ فتح AXAMP SQL Studio (سريع ومدمج)</button>
+                <button class="btn" onclick="quickOpen('phpmyadmin')">🐬 فتح phpMyAdmin (/phpmyadmin)</button>
+            </div>
+        </div>
+
+        <div class="card" style="margin-bottom:18px;">
+            <h3>
+                <span>🗄️ قواعد البيانات المحلية في مجلد <code>data/</code></span>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <input type="text" id="new-db-name" placeholder="اسم قاعدة بيانات جديدة..." style="width:200px;">
+                    <button class="btn btn-primary" onclick="createDatabase()">+ إنشاء فوري</button>
+                    <button class="btn btn-success" onclick="backupAllDBs()">📦 نسخ احتياطي مضغوط للكل (.zip)</button>
+                    <button class="btn" onclick="quickOpen('backups')">📂 مجلد النسخ الاحتياطية</button>
+                </div>
+            </h3>
+            <table>
+                <thead><tr><th>اسم قاعدة البيانات</th><th>الحجم التقريبي</th><th>عدد الملفات</th><th>إجراءات</th></tr></thead>
+                <tbody id="db-table-body"></tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <h3>⏱️ أرشيف النسخ الاحتياطية التلقائية والمضغوطة (<code>backups/*.zip</code>)</h3>
+            <table>
+                <thead><tr><th>اسم الأرشيف</th><th>الحجم</th><th>تاريخ الإنشاء</th></tr></thead>
+                <tbody id="backups-table-body"></tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- TAB 4: PHP & EXTENSIONS -->
+    <section id="tab-php" class="tab-pane">
+        <div class="card" style="margin-bottom:18px;">
+            <h3>🔄 مقارنة نمط التطوير (Development) مقابل الإنتاجية (Production)</h3>
+            <table>
+                <thead><tr><th>المعيار</th><th>نمط التطوير (Development)</th><th>نمط الإنتاجية (Production)</th></tr></thead>
+                <tbody>
+                    <tr><td>إظهار أخطاء PHP (display_errors)</td><td>مفعل (On - E_ALL)</td><td>مخفي للأمان (Off - السجل فقط)</td></tr>
+                    <tr><td>مسرّع الأكواد OPcache</td><td>معطل لرؤية التعديلات فوراً</td><td>مفعل بأقصى سرعة</td></tr>
+                    <tr><td>فهرسة مجلدات Apache (Indexes)</td><td>مسموح لتصفح الملفات</td><td>مغلق (-Indexes) ومنع تسريب الهوية</td></tr>
+                    <tr><td>سجل استعلامات MySQL البطيئة</td><td>مفعل (slow_query_log = 1)</td><td>معطل لتقليل الكتابة على القرص</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <h3>🧩 مدير امتدادات PHP السريع (One-Click PHP Extensions)</h3>
+            <p style="color:var(--text-muted);font-size:0.86rem;">تفعيل أو تعطيل أي امتداد يقوم بتحديث <code>conf/php.ini</code> فوراً (تشمل امتدادات <code>odbc</code> و <code>pdo_odbc</code> مفعلة افتراضياً):</p>
+            <div id="php-ext-grid" class="ext-grid"></div>
+        </div>
+    </section>
+
+    <!-- TAB 5: ODBC MANAGER -->
+    <section id="tab-odbc" class="tab-pane">
+        <div id="odbc-warnings"></div>
+        <div class="grid-2">
+            <div class="card">
+                <h3>➕ إضافة مصدر بيانات ODBC جديد (User DSN)</h3>
+                <p style="color:var(--text-muted);font-size:0.84rem;">يتم تسجيل الـ DSN مباشرة في سجل الويندوز (Windows Registry) ليرتبط مع PHP بسهولة:</p>
+                <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px;">
+                    <input type="text" id="odbc-name" placeholder="اسم المصدر (DSN Name) مثال: ERP_DB">
+                    <select id="odbc-driver"></select>
+                    <input type="text" id="odbc-server" placeholder="عنوان السيرفر (اختياري لـ SQL Server مثال: 127.0.0.1)">
+                    <input type="text" id="odbc-db" placeholder="اسم قاعدة البيانات أو مسار ملف Access (.accdb / .mdb)">
+                    <button class="btn btn-primary" onclick="createODBCDSN()">حفظ وتسجيل في النظام</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>🔍 كود فحص الاتصال الجاهز بـ PHP</h3>
+                <p style="color:var(--text-muted);font-size:0.84rem;">استخدم هذا الكود للاتصال بأي مصدر DSN قمت بإنشائه:</p>
+                <pre class="log-viewer" style="height:210px;">&lt;?php
+// اتصال مباشر عبر PDO ODBC
+$dsn = "odbc:ERP_DB";
+$pdo = new PDO($dsn, "", "");
+$rows = $pdo-&gt;query("SELECT * FROM users")-&gt;fetchAll();
+print_r($rows);
+?&gt;</pre>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>📋 مصادر البيانات المسجلة حالياً في الحاسبة (System & User DSNs)</h3>
+            <table>
+                <thead><tr><th>الاسم (DSN)</th><th>التعريف (Driver)</th><th>النطاق</th><th>المعمارية</th><th>إجراء</th></tr></thead>
+                <tbody id="odbc-dsn-table"></tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- TAB 6: XAMPP MIGRATOR -->
+    <section id="tab-migrate" class="tab-pane">
+        <div class="card" style="margin-bottom:18px;">
+            <h3>📦 معالج الترقية والانتقال الذكي من XAMPP قديم (المشاريع والقواعد)</h3>
+            <p style="color:var(--text-muted);font-size:0.88rem;">
+                أدخل مسار مجلد XAMPP القديم (مثل <code>C:\xampp</code>) وسيقوم AXAMP بفحص مشاريع <code>htdocs</code>، قواعد بيانات MySQL، وإعدادات <code>php.ini</code> لاستيرادها بأمان.
+            </p>
+            <div style="display:flex;gap:10px;margin-top:14px;">
+                <input type="text" id="xampp-path" value="C:\xampp" placeholder="C:\xampp">
+                <button class="btn btn-primary" onclick="scanXampp()">🔍 فحص مجلد XAMPP</button>
+            </div>
+        </div>
+
+        <div id="xampp-scan-result" class="card" style="display:none;">
+            <h3>نتائج فحص XAMPP</h3>
+            <div id="xampp-summary" style="margin-bottom:14px;font-size:0.9rem;"></div>
+            <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
+                <label><input type="checkbox" id="mig-projects" checked> نسخ جميع مشاريع htdocs المكتشفة</label>
+                <label><input type="checkbox" id="mig-dbs" checked> نسخ مجلدات قواعد البيانات (MySQL Data)</label>
+                <label><input type="checkbox" id="mig-exts" checked> مطابقة وتفعيل امتدادات PHP القديمة</label>
+            </div>
+            <button class="btn btn-success" onclick="executeMigration()">🚀 بدء الترقية والنقل إلى AXAMP الآن</button>
+            <div id="mig-output" style="margin-top:14px;color:var(--accent);"></div>
+        </div>
+    </section>
+
+    <!-- TAB 7: VIRTUAL HOSTS -->
+    <section id="tab-vhosts" class="tab-pane">
+        <div class="card" style="margin-bottom:18px;">
+            <h3>🌐 النطاقات الوهمية المحلية (Dynamic Local Domains)</h3>
+            <p style="color:var(--text-muted);font-size:0.88rem;">أضف نطاقاً محلياً (مثل <code>myapp.test</code>) ليقوم اللانشر بربطه بمجلد المشروع وتحديث ملف <code>hosts</code> في الويندوز وملف <code>httpd.conf</code> تلقائياً:</p>
+            <div style="display:flex;gap:10px;margin-top:12px;">
+                <input type="text" id="vh-domain" placeholder="النطاق مثال: project1.test">
+                <input type="text" id="vh-root" placeholder="اسم المجلد داخل htdocs مثال: project1">
+                <button class="btn btn-primary" onclick="addVHost()">+ إضافة النطاق</button>
+            </div>
+        </div>
+        <div class="card">
+            <h3>النطاقات المفعلة</h3>
+            <table>
+                <thead><tr><th>النطاق (Domain)</th><th>المسار (DocumentRoot)</th><th>إجراء</th></tr></thead>
+                <tbody id="vhosts-table"></tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- TAB 8: LIVE LOGS -->
+    <section id="tab-logs" class="tab-pane">
+        <div class="card">
+            <h3>
+                <span>📜 عارض السجلات الحية وتشخيص الأخطاء (Live Logs Viewer)</span>
+                <div style="display:flex;gap:8px;">
+                    <select id="log-type" onchange="loadLogs()" style="width:200px;">
+                        <option value="apache_error">Apache Error Log</option>
+                        <option value="apache_access">Apache Access Log</option>
+                        <option value="php_error">PHP Error Log</option>
+                        <option value="mysql_error">MySQL Error Log</option>
+                    </select>
+                    <button class="btn" onclick="loadLogs()">🔄 تحديث</button>
+                    <button class="btn btn-danger" onclick="clearLogs()">🗑️ تفريغ السجل</button>
+                </div>
+            </h3>
+            <pre id="log-content" class="log-viewer">لا توجد سجلات حتى الآن...</pre>
+        </div>
+    </section>
+
+    <!-- TAB 9: REMOTE ACCESS & SETTINGS -->
+    <section id="tab-remote" class="tab-pane">
+        <div class="grid-2">
+            <div class="card">
+                <h3>🛡️ الوصول البعيد عبر الشبكة المحلية (Remote GUI Management)</h3>
+                <p style="color:var(--text-muted);font-size:0.86rem;">
+                    عند تفعيل هذا الخيار، يمكنك الدخول إلى لوحة التحكم هذه من أي جهاز آخر على نفس الشبكة عبر العناوين التالية مع إدخال رمز الحماية (PIN):
+                </p>
+                <div style="background:var(--bg-dark);padding:14px;border-radius:10px;border:1px solid var(--border);margin:12px 0;">
+                    <div>🔗 روابط الشبكة المحلية (LAN URLs): <strong id="lan-urls" style="color:var(--accent);"></strong></div>
+                    <div style="margin-top:8px;">🔑 رمز الحماية المؤقت (Dynamic Security PIN): <strong id="remote-pin" style="color:var(--success);font-size:1.2rem;letter-spacing:2px;"></strong></div>
+                </div>
+                <button class="btn" onclick="regeneratePIN()">🔄 توليد رمز PIN جديد</button>
+            </div>
+
+            <div class="card">
+                <h3>⚙️ إعدادات اللانشر والمنافذ الذكية</h3>
+                <div style="display:flex;flex-direction:column;gap:12px;">
+                    <div>
+                        <label style="font-size:0.82rem;color:var(--text-muted);">منفذ Apache المفضل:</label>
+                        <input type="text" id="set-apache-port">
+                    </div>
+                    <div>
+                        <label style="font-size:0.82rem;color:var(--text-muted);">منفذ MySQL المفضل:</label>
+                        <input type="text" id="set-mysql-port">
+                    </div>
+                    <label><input type="checkbox" id="set-autostart-win"> تشغيل AXAMP تلقائياً مع إقلاع الويندوز (System Startup)</label>
+                    <label><input type="checkbox" id="set-autostart-srv"> تشغيل Apache و MySQL تلقائياً عند فتح اللانشر</label>
+                    <label><input type="checkbox" id="set-autoheal"> تفعيل التعافي التلقائي عند توقف أي خدمة فجأة (Auto-Heal)</label>
+                    <label><input type="checkbox" id="set-remote"> السماح بالإدارة عن بعد عبر الشبكة المحلية (Allow Remote GUI)</label>
+                    <button class="btn btn-primary" onclick="saveSettings()">💾 حفظ وتطبيق الإعدادات</button>
+                </div>
+            </div>
+        </div>
+    </section>
+</main>
+
+<script>
+let remotePin = localStorage.getItem('axamp_pin') || '';
+
+async function api(url, options = {}) {
+    options.headers = options.headers || {};
+    if (remotePin) options.headers['X-AXAMP-PIN'] = remotePin;
+    const res = await fetch(url, options);
+    if (res.status === 401) {
+        const pin = prompt('هذا الاتصال عن بعد محمي. أدخل رمز PIN الظاهر على الجهاز الرئيسي:');
+        if (pin) {
+            remotePin = pin;
+            localStorage.setItem('axamp_pin', pin);
+            return api(url, options);
+        }
+    }
+    return res.json();
+}
+
+function switchTab(id, btn) {
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + id).classList.add('active');
+    if (btn) btn.classList.add('active');
+    if (id === 'odbc') loadODBC();
+    if (id === 'logs') loadLogs();
+}
+
+async function refreshState() {
+    try {
+        const data = await api('/api/state');
+        if (!data || !data.config) return;
+
+        document.getElementById('root-path-label').textContent = 'المسار المحمول النشط: ' + data.config.root_dir;
+        document.getElementById('hw-ram').textContent = (data.hardware.total_ram_mb / 1024).toFixed(1) + ' GB (' + data.hardware.memory_load_percent + '% مستخدم)';
+        document.getElementById('ram-bar').style.width = data.hardware.memory_load_percent + '%';
+        document.getElementById('hw-cpu').textContent = data.hardware.cpu_cores + ' أنوية (' + data.hardware.arch + ')';
+        document.getElementById('hw-php-mem').textContent = data.hardware.recommended_php_memory;
+        document.getElementById('hw-innodb').textContent = data.hardware.recommended_innodb_size;
+
+        // Mode Pills
+        const isDev = data.config.mode === 'development';
+        document.getElementById('pill-dev').className = 'mode-pill ' + (isDev ? 'active-dev' : '');
+        document.getElementById('pill-prod').className = 'mode-pill ' + (!isDev ? 'active-prod' : '');
+
+        // Services
+        renderService('apache', data.services.apache);
+        renderService('mysql', data.services.mysql);
+
+        // Hybrid Packages
+        if (document.activeElement.tagName !== 'INPUT') {
+            renderPackages(data.packages || []);
+        }
+
+        // Projects
+        const projEl = document.getElementById('projects-list');
+        if (data.projects && data.projects.length) {
+            projEl.innerHTML = data.projects.map(p =>
+                `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+                    <strong>📁 ${p}</strong>
+                    <a href="http://localhost:${data.config.apache_port}/${p}" target="_blank" style="color:var(--accent);text-decoration:none;">فتح المشروع ↗</a>
+                </div>`
+            ).join('');
+        } else {
+            projEl.innerHTML = 'لا توجد مجلدات فرعية بعد داخل <code>htdocs/</code> (الصفحة الترحيبية جاهزة).';
+        }
+
+        // Events
+        document.getElementById('events-list').innerHTML = (data.events || []).map(e => `<div>${e}</div>`).join('');
+
+        // Databases
+        const dbBody = document.getElementById('db-table-body');
+        dbBody.innerHTML = (data.databases || []).map(d => `
+            <tr>
+                <td><strong>🗄️ ${d.name}</strong></td>
+                <td>${d.size_mb.toFixed(2)} MB</td>
+                <td>${d.file_count}</td>
+                <td><button class="btn btn-sm" onclick="backupDB('${d.name}')">💾 نسخ احتياطي .zip</button></td>
+            </tr>
+        `).join('') || '<tr><td colspan="4">لا توجد قواعد بيانات بعد في مجلد data/</td></tr>';
+
+        // Backups list
+        const bkBody = document.getElementById('backups-table-body');
+        if (bkBody) {
+            bkBody.innerHTML = (data.backups || []).map(b => `
+                <tr>
+                    <td><strong>📦 ${b.file_name}</strong></td>
+                    <td>${b.size_kb.toFixed(1)} KB</td>
+                    <td>${b.created_at}</td>
+                </tr>
+            `).join('') || '<tr><td colspan="3">لا توجد نسخ احتياطية محفوظة بعد.</td></tr>';
+        }
+
+        // PHP Extensions
+        const extGrid = document.getElementById('php-ext-grid');
+        extGrid.innerHTML = Object.entries(data.config.php_extensions || {}).sort().map(([ext, on]) => `
+            <div class="ext-item">
+                <span><code>${ext}</code></span>
+                <input type="checkbox" ${on ? 'checked' : ''} onchange="toggleExt('${ext}', this.checked)">
+            </div>
+        `).join('');
+
+        // VirtualHosts
+        const vhBody = document.getElementById('vhosts-table');
+        vhBody.innerHTML = (data.config.virtual_hosts || []).map(v => `
+            <tr>
+                <td><a href="http://${v.domain}:${data.config.apache_port}" target="_blank" style="color:var(--accent)">http://${v.domain}</a></td>
+                <td><code>${v.document_root}</code></td>
+                <td><button class="btn btn-danger btn-sm" onclick="removeVHost('${v.domain}')">حذف</button></td>
+            </tr>
+        `).join('') || '<tr><td colspan="3">لا توجد نطاقات مخصصة بعد.</td></tr>';
+
+        // Settings & Remote
+        document.getElementById('remote-pin').textContent = data.config.remote_pin;
+        const ips = (data.hardware.local_ips || []).map(ip => `http://${ip}:${data.config.control_port}`).join(' ، ');
+        document.getElementById('lan-urls').textContent = ips;
+
+        if (document.activeElement.tagName !== 'INPUT') {
+            document.getElementById('set-apache-port').value = data.config.apache_port;
+            document.getElementById('set-mysql-port').value = data.config.mysql_port;
+            document.getElementById('set-autostart-win').checked = data.config.auto_start_windows;
+            document.getElementById('set-autostart-srv').checked = data.config.auto_start_services;
+            document.getElementById('set-autoheal').checked = data.config.auto_heal;
+            document.getElementById('set-remote').checked = data.config.remote_access;
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+function renderService(key, st) {
+    if (!st) return;
+    document.getElementById(key + '-port').textContent = st.port;
+    document.getElementById(key + '-pid').textContent = st.pid || '-';
+    document.getElementById(key + '-restarts').textContent = st.restarts || 0;
+    document.getElementById(key + '-err').textContent = st.last_error || '';
+
+    const winSvcEl = document.getElementById(key + '-winsvc');
+    if (st.win_service_installed) {
+        winSvcEl.textContent = st.win_service_running ? 'مثبتة وتعمل (Running)' : 'مثبتة ومتوقفة';
+        winSvcEl.style.color = 'var(--success)';
+    } else {
+        winSvcEl.textContent = 'غير مثبتة';
+        winSvcEl.style.color = 'var(--text-muted)';
+    }
+
+    const badge = document.getElementById(key + '-badge');
+    if (st.state === 'running') {
+        badge.className = 'badge badge-running';
+        badge.textContent = 'يعمل بنجاح';
+    } else if (st.state === 'binary_missing') {
+        badge.className = 'badge badge-missing';
+        badge.textContent = 'بانتظار ملفات bin/' + key;
+    } else {
+        badge.className = 'badge badge-stopped';
+        badge.textContent = 'متوقف';
+    }
+}
+
+function renderPackages(pkgs) {
+    const container = document.getElementById('packages-list');
+    container.innerHTML = pkgs.map(p => `
+        <div style="background:var(--bg-dark);border:1px solid var(--border);border-radius:12px;padding:16px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div>
+                    <strong style="font-size:1rem;">📦 ${p.name}</strong>
+                    <div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;">المسار: <code>${p.binary_path}</code></div>
+                </div>
+                <span class="badge ${p.installed ? 'badge-running' : 'badge-missing'}">${p.installed ? 'مثبت وجاهز' : 'غير مثبت'}</span>
+            </div>
+            <div style="font-size:0.84rem;color:var(--accent);margin-bottom:8px;">${p.status_text}</div>
+            <div class="progress-bar" style="margin-bottom:12px;"><div class="progress-fill" style="width:${p.progress || 0}%"></div></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <input type="text" id="zip-${p.id}" placeholder="مسار ملف .zip محلي (Offline) مثال: D:\\packages\\${p.id}.zip" style="flex:1;min-width:240px;">
+                <button class="btn" onclick="installLocalZip('${p.id}')">📂 تثبيت من ملف ZIP محلي</button>
+                <button class="btn btn-primary" onclick="downloadPackage('${p.id}')">🌐 تحميل تلقائي (Online)</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function installLocalZip(pkgId) {
+    const zip_path = document.getElementById('zip-' + pkgId).value.trim();
+    if (!zip_path) return alert('أدخل مسار ملف الـ ZIP المحلي أولاً');
+    const res = await api('/api/packages', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'local_zip', package_id: pkgId, zip_path })
+    });
+    if (!res.ok) alert('خطأ: ' + res.error);
+    refreshState();
+}
+
+async function downloadPackage(pkgId) {
+    await api('/api/packages', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'download', package_id: pkgId })
+    });
+    refreshState();
+}
+
+async function cloneXamppBinaries() {
+    const xampp_path = document.getElementById('clone-xampp-path').value.trim();
+    const res = await api('/api/packages', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'clone_xampp', xampp_path })
+    });
+    if (res.ok) alert('تم استنساخ المحركات بنجاح: ' + (res.cloned || []).join(', '));
+    else alert('تنبيه: ' + res.error);
+    refreshState();
+}
+
+async function serviceAction(target, action) {
+    await api('/api/service', {
+        method: 'POST',
+        body: JSON.stringify({ target, action })
+    });
+    refreshState();
+}
+
+async function winServiceAction(target, action) {
+    const res = await api('/api/winservice', {
+        method: 'POST',
+        body: JSON.stringify({ target, action })
+    });
+    if (!res.ok) alert(res.error);
+    refreshState();
+}
+
+async function setMode(mode) {
+    await api('/api/mode', {
+        method: 'POST',
+        body: JSON.stringify({ mode })
+    });
+    refreshState();
+}
+
+async function toggleExt(extension, enabled) {
+    await api('/api/php/extensions', {
+        method: 'POST',
+        body: JSON.stringify({ extension, enabled })
+    });
+}
+
+async function quickOpen(target) {
+    await api('/api/quick-open?target=' + target);
+}
+
+async function createDatabase() {
+    const name = document.getElementById('new-db-name').value.trim();
+    if (!name) return;
+    await api('/api/databases', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'create', name })
+    });
+    document.getElementById('new-db-name').value = '';
+    refreshState();
+}
+
+async function backupDB(name) {
+    const res = await api('/api/databases', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'backup', name })
+    });
+    if (res.ok) alert('تم حفظ النسخة الاحتياطية المضغوطة في:\n' + res.backup_path);
+    else alert('تنبيه: ' + res.error);
+    refreshState();
+}
+
+async function backupAllDBs() {
+    const res = await api('/api/databases', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'backup_all' })
+    });
+    if (res.ok) alert('تم إنشاء النسخ الاحتياطية المضغوطة بنجاح (' + (res.files || []).length + ' قاعدة بيانات)');
+    else alert('تنبيه: ' + res.error);
+    refreshState();
+}
+
+async function loadODBC() {
+    const data = await api('/api/odbc');
+    const warnEl = document.getElementById('odbc-warnings');
+    warnEl.innerHTML = (data.arch_mismatch_risks || []).map(w => `<div class="alert-warn">⚠️ ${w}</div>`).join('');
+
+    const drvSelect = document.getElementById('odbc-driver');
+    drvSelect.innerHTML = (data.drivers || []).map(d => `<option value="${d.name}">${d.name} (${d.architecture})</option>`).join('');
+
+    const tbl = document.getElementById('odbc-dsn-table');
+    tbl.innerHTML = (data.dsns || []).map(d => `
+        <tr>
+            <td><strong>${d.name}</strong></td>
+            <td>${d.driver}</td>
+            <td>${d.scope}</td>
+            <td>${d.architecture}</td>
+            <td>${d.scope === 'User DSN' ? `<button class="btn btn-danger btn-sm" onclick="deleteODBC('${d.name}')">حذف</button>` : '-'}</td>
+        </tr>
+    `).join('') || '<tr><td colspan="5">لا توجد مصادر ODBC مسجلة حالياً.</td></tr>';
+}
+
+async function createODBCDSN() {
+    const name = document.getElementById('odbc-name').value.trim();
+    const driver = document.getElementById('odbc-driver').value;
+    const server = document.getElementById('odbc-server').value.trim();
+    const database = document.getElementById('odbc-db').value.trim();
+    const res = await api('/api/odbc', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'create', name, driver, server, database })
+    });
+    if (!res.ok) alert(res.error);
+    loadODBC();
+}
+
+async function deleteODBC(name) {
+    await api('/api/odbc', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'delete', name })
+    });
+    loadODBC();
+}
+
+async function scanXampp() {
+    const path = document.getElementById('xampp-path').value.trim();
+    const rep = await api('/api/migrate/scan?path=' + encodeURIComponent(path));
+    const box = document.getElementById('xampp-scan-result');
+    box.style.display = 'block';
+    if (!rep.valid) {
+        document.getElementById('xampp-summary').innerHTML = `<span style="color:var(--danger)">❌ لم يتم العثور على مجلد htdocs أو mysql/data في المسار: ${rep.path}</span>`;
+        return;
+    }
+    document.getElementById('xampp-summary').innerHTML = `
+        ✅ تم العثور على تثبيت XAMPP صالح!<br>
+        • المشاريع المكتشفة (${rep.projects.length}): <code>${rep.projects.join(', ') || 'لا يوجد'}</code><br>
+        • قواعد البيانات المكتشفة (${rep.databases.length}): <code>${rep.databases.join(', ') || 'لا يوجد'}</code><br>
+        • امتدادات PHP المفعلة (${rep.enabled_extensions.length}): <code>${rep.enabled_extensions.join(', ')}</code>
+    `;
+}
+
+async function executeMigration() {
+    const source_path = document.getElementById('xampp-path').value.trim();
+    const copy_projects = document.getElementById('mig-projects').checked;
+    const copy_databases = document.getElementById('mig-dbs').checked;
+    const import_extensions = document.getElementById('mig-exts').checked;
+
+    document.getElementById('mig-output').textContent = '⏳ جاري النقل وتحديث الإعدادات...';
+    const res = await api('/api/migrate/execute', {
+        method: 'POST',
+        body: JSON.stringify({ source_path, copy_projects, copy_databases, import_extensions })
+    });
+    if (res.ok) {
+        document.getElementById('mig-output').innerHTML = `🎉 تمت الترقية بنجاح! المشاريع المنقولة: (${res.result.copied_projects.length})، القواعد المنقولة: (${res.result.copied_databases.length}).`;
+        refreshState();
+    } else {
+        document.getElementById('mig-output').textContent = '❌ خطأ: ' + res.error;
+    }
+}
+
+async function addVHost() {
+    const domain = document.getElementById('vh-domain').value.trim();
+    const document_root = document.getElementById('vh-root').value.trim();
+    if (!domain) return;
+    await api('/api/vhosts', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'add', domain, document_root })
+    });
+    document.getElementById('vh-domain').value = '';
+    document.getElementById('vh-root').value = '';
+    refreshState();
+}
+
+async function removeVHost(domain) {
+    await api('/api/vhosts', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'remove', domain })
+    });
+    refreshState();
+}
+
+async function loadLogs() {
+    const t = document.getElementById('log-type').value;
+    const data = await api('/api/logs?type=' + t);
+    document.getElementById('log-content').textContent = data.content || 'السجل فارغ حالياً.';
+}
+
+async function clearLogs() {
+    const t = document.getElementById('log-type').value;
+    await api('/api/logs?type=' + t, { method: 'DELETE' });
+    loadLogs();
+}
+
+async function saveSettings() {
+    await api('/api/settings', {
+        method: 'POST',
+        body: JSON.stringify({
+            apache_port: document.getElementById('set-apache-port').value.trim(),
+            mysql_port: document.getElementById('set-mysql-port').value.trim(),
+            auto_start_windows: document.getElementById('set-autostart-win').checked,
+            auto_start_services: document.getElementById('set-autostart-srv').checked,
+            auto_heal: document.getElementById('set-autoheal').checked,
+            remote_access: document.getElementById('set-remote').checked,
+        })
+    });
+    alert('تم حفظ الإعدادات وإعادة توليد ملفات التكوين الذكية بنجاح!');
+    refreshState();
+}
+
+async function regeneratePIN() {
+    await api('/api/settings', {
+        method: 'POST',
+        body: JSON.stringify({ regenerate_pin: true })
+    });
+    refreshState();
+}
+
+refreshState();
+setInterval(refreshState, 3000);
+</script>
+</body>
+</html>

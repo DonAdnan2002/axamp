@@ -1,0 +1,23 @@
+# Binaries & Heavy Portable Packages
+*.exe
+!axamp-launcher.exe
+bin/apache/
+bin/php/
+bin/mysql/
+tools/phpmyadmin/libraries/
+tmp/
+
+# Runtime Data, Backups & Generated Configs
+data/
+logs/
+backups/
+conf/*.conf
+conf/*.ini
+conf/*.json
+
+# IDE & OS specific
+.idea/
+.vscode/
+*.swp
+Thumbs.db
+desktop.ini
