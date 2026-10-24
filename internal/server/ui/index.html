@@ -187,6 +187,7 @@ pre.log-viewer {
     </div>
 
     <button class="nav-btn active" onclick="switchTab('dashboard', this)">⚡ لوحة التحكم والخدمات</button>
+    <button class="nav-btn" onclick="switchTab('security', this)">🛡️ الفحص الأمني والنصائح (SecGuard)</button>
     <button class="nav-btn" onclick="switchTab('packages', this)">📥 مدير الحزم الهجين (Binaries)</button>
     <button class="nav-btn" onclick="switchTab('database', this)">🗄️ قواعد البيانات و phpMyAdmin</button>
     <button class="nav-btn" onclick="switchTab('php', this)">🐘 إعدادات PHP والامتدادات</button>
@@ -318,7 +319,43 @@ pre.log-viewer {
         </div>
     </section>
 
-    <!-- TAB 2: HYBRID PACKAGE MANAGER -->
+    <!-- TAB 2: SECURITY AUDITOR & ADVISORIES (SecGuard) -->
+    <section id="tab-security" class="tab-pane">
+        <div class="grid-4">
+            <div class="stat-card">
+                <span>درجة الأمان الكلية (Security Score)</span>
+                <strong id="sec-score" style="font-size:1.5rem;">--</strong>
+                <div class="progress-bar"><div id="sec-bar" class="progress-fill"></div></div>
+            </div>
+            <div class="stat-card">
+                <span>التصنيف الأمني (Grade)</span>
+                <strong id="sec-grade">--</strong>
+            </div>
+            <div class="stat-card">
+                <span>تنبيهات تحتاج مراجعة</span>
+                <strong id="sec-alerts" style="color:var(--warning);">--</strong>
+            </div>
+            <div class="stat-card">
+                <span>فحوصات آمنة (Passed)</span>
+                <strong id="sec-passed" style="color:var(--success);">--</strong>
+            </div>
+        </div>
+
+        <div class="card" style="margin-bottom:18px;">
+            <h3>
+                <span>🛡️ نتائج الفحص الأمني التلقائي والإصلاح الذاتي (One-Click Auto-Hardening)</span>
+                <button class="btn btn-primary btn-sm" onclick="refreshState()">🔄 إعادة الفحص الآن</button>
+            </h3>
+            <div id="sec-findings-list" style="display:flex;flex-direction:column;gap:12px;margin-top:12px;"></div>
+        </div>
+
+        <div class="card">
+            <h3>💡 نصائح وتوصيات المستشار الذكي (Smart DevSecOps Advisories)</h3>
+            <div id="sec-tips-list" style="display:flex;flex-direction:column;gap:10px;margin-top:10px;font-size:0.9rem;color:var(--text-main);"></div>
+        </div>
+    </section>
+
+    <!-- TAB 3: HYBRID PACKAGE MANAGER -->
     <section id="tab-packages" class="tab-pane">
         <div class="card" style="margin-bottom:18px;">
             <h3>⚡ استنساخ المحركات بدون إنترنت من XAMPP محلي (Zero-Internet Offline Clone)</h3>
@@ -586,6 +623,11 @@ async function refreshState() {
         renderService('apache', data.services.apache);
         renderService('mysql', data.services.mysql);
 
+        // Security Audit & Advisories
+        if (data.security) {
+            renderSecurity(data.security);
+        }
+
         // Hybrid Packages
         if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'SELECT') {
             renderPackages(data.packages || []);
@@ -693,6 +735,63 @@ function renderService(key, st) {
     } else {
         badge.className = 'badge badge-stopped';
         badge.textContent = 'متوقف';
+    }
+}
+
+function renderSecurity(sec) {
+    document.getElementById('sec-score').textContent = sec.score + ' / 100';
+    document.getElementById('sec-bar').style.width = sec.score + '%';
+    document.getElementById('sec-grade').textContent = sec.grade;
+    document.getElementById('sec-alerts').textContent = (sec.high_count + sec.medium_count) + ' تنبيهات';
+    document.getElementById('sec-passed').textContent = sec.pass_count + ' فحوصات آمنة';
+
+    const findingsEl = document.getElementById('sec-findings-list');
+    findingsEl.innerHTML = (sec.findings || []).map(f => {
+        let badgeCls = 'badge-running';
+        let badgeTxt = 'آمن (PASS)';
+        let borderColor = 'var(--border)';
+        if (f.level === 'HIGH') {
+            badgeCls = 'badge-missing';
+            badgeTxt = 'خطير (HIGH)';
+            borderColor = 'var(--danger)';
+        } else if (f.level === 'MEDIUM' || f.level === 'LOW') {
+            badgeCls = 'badge-missing';
+            badgeTxt = 'تنبيه (' + f.level + ')';
+            borderColor = 'var(--warning)';
+        }
+        return `
+        <div style="background:var(--bg-dark);border:1px solid ${borderColor};border-radius:12px;padding:14px 16px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:8px;">
+                <div>
+                    <span style="font-size:0.75rem;color:var(--accent);font-weight:bold;">[${f.category}]</span>
+                    <strong style="font-size:0.96rem;margin-right:6px;">${f.title}</strong>
+                </div>
+                <span class="badge ${badgeCls}">${badgeTxt}</span>
+            </div>
+            <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:6px;">${f.description}</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-top:8px;">
+                <small style="color:var(--accent);">💡 التوصية: ${f.recommendation}</small>
+                ${f.auto_fix_action ? `<button class="btn btn-primary btn-sm" onclick="applySecurityFix('${f.auto_fix_action}')">🛠️ إصلاح وتحصين تلقائي</button>` : ''}
+            </div>
+        </div>
+        `;
+    }).join('');
+
+    const tipsEl = document.getElementById('sec-tips-list');
+    tipsEl.innerHTML = (sec.smart_tips || []).map(t => `
+        <div style="background:var(--bg-dark);border:1px solid var(--border);border-radius:9px;padding:10px 14px;">${t}</div>
+    `).join('');
+}
+
+async function applySecurityFix(action) {
+    const res = await api('/api/security', {
+        method: 'POST',
+        body: JSON.stringify({ action })
+    });
+    if (res.ok) {
+        refreshState();
+    } else {
+        alert('خطأ: ' + res.error);
     }
 }
 

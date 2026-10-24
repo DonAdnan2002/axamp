@@ -17,6 +17,7 @@ import (
 	"axamp/internal/odbc"
 	"axamp/internal/pkgmanager"
 	"axamp/internal/profiler"
+	"axamp/internal/secguard"
 	"axamp/internal/supervisor"
 	"axamp/internal/winutil"
 )
@@ -54,6 +55,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/databases", s.authMiddleware(s.handleDatabases))
 	mux.HandleFunc("/api/vhosts", s.authMiddleware(s.handleVHosts))
 	mux.HandleFunc("/api/logs", s.authMiddleware(s.handleLogs))
+	mux.HandleFunc("/api/security", s.authMiddleware(s.handleSecurity))
 	mux.HandleFunc("/api/settings", s.authMiddleware(s.handleSettings))
 	mux.HandleFunc("/api/quick-open", s.authMiddleware(s.handleQuickOpen))
 
@@ -109,6 +111,7 @@ func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 		"php_versions": phpVersions,
 		"databases":    dbmanager.ListDatabases(s.cfg),
 		"backups":      dbmanager.ListBackups(s.cfg),
+		"security":     secguard.AuditStack(s.cfg),
 	}
 	_ = json.NewEncoder(w).Encode(payload)
 }
@@ -471,6 +474,35 @@ func (s *Server) handleLogs(w http.ResponseWriter, r *http.Request) {
 		"content": content,
 		"events":  s.sup.GetEvents(),
 	})
+}
+
+func (s *Server) handleSecurity(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		_ = json.NewEncoder(w).Encode(secguard.AuditStack(s.cfg))
+		return
+	}
+	if r.Method == http.MethodPost {
+		var req struct {
+			Action string `json:"action"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		err := secguard.ApplyAutoFix(s.cfg, req.Action)
+		errMsg := ""
+		if err != nil {
+			errMsg = err.Error()
+		} else {
+			st := s.sup.Status()
+			if st["apache"].State == supervisor.StateRunning {
+				_ = s.sup.StopApache()
+				_ = s.sup.StartApache()
+			}
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"ok":       err == nil,
+			"error":    errMsg,
+			"security": secguard.AuditStack(s.cfg),
+		})
+	}
 }
 
 func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {

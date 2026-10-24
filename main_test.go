@@ -17,6 +17,7 @@ import (
 	"axamp/internal/odbc"
 	"axamp/internal/pkgmanager"
 	"axamp/internal/profiler"
+	"axamp/internal/secguard"
 	"axamp/internal/server"
 	"axamp/internal/supervisor"
 )
@@ -228,4 +229,37 @@ func TestControlPlaneAPI(t *testing.T) {
 	}
 
 	t.Logf("[PASS] E2E Control Plane API verified on %s (State & Mode Switching OK)", baseURL)
+}
+
+// 7. اختبار الحارس الأمني والإصلاح الذاتي (SecGuard Auditor & Auto-Fix Test)
+func TestSecurityAuditorAndAutoFix(t *testing.T) {
+	tmpRoot := t.TempDir()
+	cfg, _ := config.LoadOrInit(tmpRoot)
+	hw := profiler.InspectSystem()
+	_ = generator.GenerateAll(cfg, hw)
+
+	// إنشاء ملف حساس .env تجريبي داخل htdocs لرصد التسرب
+	envFile := filepath.Join(tmpRoot, "htdocs", ".env")
+	_ = os.WriteFile(envFile, []byte("DB_PASSWORD=secret"), 0644)
+
+	repBefore := secguard.AuditStack(cfg)
+	if repBefore.HighCount == 0 {
+		t.Fatalf("Expected SecGuard to detect exposed .env file as HIGH risk")
+	}
+
+	// تطبيق الإصلاح التلقائي لحماية htdocs عبر .htaccess وتقييد دوال PHP الخطرة
+	if err := secguard.ApplyAutoFix(cfg, "protect_htdocs_htaccess"); err != nil {
+		t.Fatalf("AutoFix protect_htdocs_htaccess failed: %v", err)
+	}
+	if err := secguard.ApplyAutoFix(cfg, "harden_php_functions"); err != nil {
+		t.Fatalf("AutoFix harden_php_functions failed: %v", err)
+	}
+
+	repAfter := secguard.AuditStack(cfg)
+	if repAfter.Score <= repBefore.Score {
+		t.Fatalf("Expected security score to improve after AutoFix: before=%d, after=%d", repBefore.Score, repAfter.Score)
+	}
+
+	t.Logf("[PASS] SecGuard detected exposed .env and auto-hardened stack (Score improved: %d -> %d [%s])",
+		repBefore.Score, repAfter.Score, repAfter.Grade)
 }
