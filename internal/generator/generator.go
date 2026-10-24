@@ -317,6 +317,8 @@ extension_dir = "%s/ext"
 sys_temp_dir = "%s/tmp"
 upload_tmp_dir = "%s/tmp"
 session.save_path = "%s/tmp"
+session.upload_progress.enabled = 0
+fatal_error_backtraces = 0
 
 ; Dynamic Extensions (Managed by AXAMP GUI & ODBC Manager)
 %s

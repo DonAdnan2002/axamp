@@ -579,7 +579,7 @@ async function refreshState() {
         renderService('mysql', data.services.mysql);
 
         // Hybrid Packages
-        if (document.activeElement.tagName !== 'INPUT') {
+        if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'SELECT') {
             renderPackages(data.packages || []);
         }
 
@@ -702,9 +702,17 @@ function renderPackages(pkgs) {
             <div style="font-size:0.84rem;color:var(--accent);margin-bottom:8px;">${p.status_text}</div>
             <div class="progress-bar" style="margin-bottom:12px;"><div class="progress-fill" style="width:${p.progress || 0}%"></div></div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                <input type="text" id="zip-${p.id}" placeholder="مسار ملف .zip محلي (Offline) مثال: D:\\packages\\${p.id}.zip" style="flex:1;min-width:240px;">
+                <input type="text" id="zip-${p.id}" placeholder="مسار ملف .zip محلي (Offline) مثال: D:\\packages\\${p.id}.zip" style="flex:1;min-width:220px;">
                 <button class="btn" onclick="installLocalZip('${p.id}')">📂 تثبيت من ملف ZIP محلي</button>
-                <button class="btn btn-primary" onclick="downloadPackage('${p.id}')">🌐 تحميل تلقائي (Online)</button>
+                ${p.id === 'php' ? `
+                <select id="php-ver-select" style="width:230px;">
+                    <option value="https://downloads.php.net/~windows/releases/archives/php-8.5.12-Win32-vs17-x64.zip">PHP 8.5.12 TS x64 (الأحدث Oct 2026)</option>
+                    <option value="https://downloads.php.net/~windows/releases/archives/php-8.4.27-Win32-vs17-x64.zip">PHP 8.4.27 TS x64 (Oct 2026)</option>
+                    <option value="https://downloads.php.net/~windows/releases/archives/php-8.3.36-Win32-vs16-x64.zip">PHP 8.3.36 TS x64 (Oct 2026)</option>
+                    <option value="https://downloads.php.net/~windows/releases/archives/php-8.2.35-Win32-vs16-x64.zip">PHP 8.2.35 TS x64 (Oct 2026)</option>
+                </select>
+                ` : ''}
+                <button class="btn btn-primary" onclick="downloadPackage('${p.id}')">🌐 تحميل نظيف مباشر (Online)</button>
             </div>
         </div>
     `).join('');
@@ -722,9 +730,14 @@ async function installLocalZip(pkgId) {
 }
 
 async function downloadPackage(pkgId) {
+    let custom_url = '';
+    if (pkgId === 'php') {
+        const sel = document.getElementById('php-ver-select');
+        if (sel) custom_url = sel.value;
+    }
     await api('/api/packages', {
         method: 'POST',
-        body: JSON.stringify({ action: 'download', package_id: pkgId })
+        body: JSON.stringify({ action: 'download', package_id: pkgId, custom_url })
     });
     refreshState();
 }

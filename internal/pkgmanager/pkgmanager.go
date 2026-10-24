@@ -45,27 +45,27 @@ func (m *Manager) InspectPackages() []PackageStatus {
 	pkgs := []PackageStatus{
 		{
 			ID:          "apache",
-			Name:        "Apache HTTP Server (2.4 x64)",
+			Name:        "Apache HTTP Server (2.4.69 VS18 x64 - Oct 2026)",
 			BinaryPath:  filepath.Join(m.cfg.RootDir, "bin", "apache", "bin", "httpd.exe"),
-			DownloadURL: "https://www.apachelounge.com/download/VS17/binaries/httpd-2.4.62-240904-win64-VS17.zip",
+			DownloadURL: "https://www.apachelounge.com/download/VS18/binaries/httpd-2.4.69-261002-Win64-VS18.zip",
 		},
 		{
 			ID:          "php",
-			Name:        "PHP Runtime (8.3 Thread-Safe x64)",
+			Name:        "PHP Runtime (8.5.12 TS VS17 x64 - Security Release Oct 2026)",
 			BinaryPath:  filepath.Join(m.cfg.RootDir, "bin", "php", "php.exe"),
-			DownloadURL: "https://windows.php.net/downloads/releases/archives/php-8.3.12-Win32-vs16-x64.zip",
+			DownloadURL: "https://downloads.php.net/~windows/releases/archives/php-8.5.12-Win32-vs17-x64.zip",
 		},
 		{
 			ID:          "mysql",
-			Name:        "MariaDB / MySQL Server (11.4 x64)",
+			Name:        "MariaDB / MySQL Server (11.4.13 LTS x64 - Oct 2026)",
 			BinaryPath:  filepath.Join(m.cfg.RootDir, "bin", "mysql", "bin", "mysqld.exe"),
-			DownloadURL: "https://archive.mariadb.org/mariadb-11.4.3/winx64-packages/mariadb-11.4.3-winx64.zip",
+			DownloadURL: "https://archive.mariadb.org/mariadb-11.4.13/winx64-packages/mariadb-11.4.13-winx64.zip",
 		},
 		{
 			ID:          "phpmyadmin",
-			Name:        "phpMyAdmin (Full Web Suite)",
+			Name:        "phpMyAdmin (5.2.3 Full Web Suite)",
 			BinaryPath:  filepath.Join(m.cfg.RootDir, "tools", "phpmyadmin", "libraries"),
-			DownloadURL: "https://files.phpmyadmin.net/phpMyAdmin/5.2.1/phpMyAdmin-5.2.1-all-languages.zip",
+			DownloadURL: "https://files.phpmyadmin.net/phpMyAdmin/5.2.3/phpMyAdmin-5.2.3-all-languages.zip",
 		},
 	}
 
@@ -287,6 +287,18 @@ func extractSmartZip(zipPath, destDir, pkgID string) error {
 }
 
 func detectCommonRootPrefix(files []*zip.File) string {
+	// If all files start with Apache24/, strip Apache24/ even if Readme.txt exists at root
+	apacheCount := 0
+	for _, f := range files {
+		clean := strings.TrimPrefix(strings.ReplaceAll(f.Name, `\`, `/`), "/")
+		if strings.HasPrefix(clean, "Apache24/") {
+			apacheCount++
+		}
+	}
+	if apacheCount > 50 {
+		return "Apache24/"
+	}
+
 	var rootCandidate string
 	for _, f := range files {
 		clean := strings.TrimPrefix(strings.ReplaceAll(f.Name, `\`, `/`), "/")
