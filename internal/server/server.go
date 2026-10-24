@@ -15,10 +15,12 @@ import (
 	"axamp/internal/generator"
 	"axamp/internal/migrator"
 	"axamp/internal/odbc"
+	"axamp/internal/phptransform"
 	"axamp/internal/pkgmanager"
 	"axamp/internal/profiler"
 	"axamp/internal/secguard"
 	"axamp/internal/supervisor"
+	"axamp/internal/upgrader"
 	"axamp/internal/winutil"
 )
 
@@ -56,6 +58,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/vhosts", s.authMiddleware(s.handleVHosts))
 	mux.HandleFunc("/api/logs", s.authMiddleware(s.handleLogs))
 	mux.HandleFunc("/api/security", s.authMiddleware(s.handleSecurity))
+	mux.HandleFunc("/api/upgrader", s.authMiddleware(s.handleUpgrader))
 	mux.HandleFunc("/api/settings", s.authMiddleware(s.handleSettings))
 	mux.HandleFunc("/api/quick-open", s.authMiddleware(s.handleQuickOpen))
 
@@ -503,6 +506,56 @@ func (s *Server) handleSecurity(w http.ResponseWriter, r *http.Request) {
 			"security": secguard.AuditStack(s.cfg),
 		})
 	}
+}
+
+func (s *Server) handleUpgrader(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		return
+	}
+	var req struct {
+		Action        string `json:"action"` // snippet, folder, launch_studio
+		Code          string `json:"code"`
+		Folder        string `json:"folder"`
+		TargetVersion string `json:"target_version"`
+		DryRun        bool   `json:"dry_run"`
+		Backup        bool   `json:"backup"`
+		StrictTypes   bool   `json:"strict_types"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+
+	if req.Action == "launch_studio" {
+		err := upgrader.LaunchStandaloneStudio()
+		errMsg := ""
+		if err != nil {
+			errMsg = err.Error()
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"ok":    err == nil,
+			"error": errMsg,
+		})
+		return
+	}
+
+	opts := phptransform.Options{
+		TargetVersion:          req.TargetVersion,
+		AddStrictTypes:         req.StrictTypes,
+		ArrayShortSyntax:       true,
+		ListShortSyntax:        true,
+		VarToPublic:            true,
+		FixCurlyOffsets:        true,
+		FixPhp4Constructors:    true,
+		ConstructorPromotion:   true,
+		FixDeprecatedFunctions: true,
+	}
+
+	if req.Action == "snippet" {
+		out := upgrader.UpgradeSnippet(s.cfg, req.Code, opts)
+		_ = json.NewEncoder(w).Encode(out)
+		return
+	}
+
+	batch := upgrader.UpgradeProjectFolder(s.cfg, req.Folder, opts, req.DryRun, req.Backup)
+	_ = json.NewEncoder(w).Encode(batch)
 }
 
 func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {

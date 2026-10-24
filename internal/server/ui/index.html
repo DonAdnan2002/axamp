@@ -188,6 +188,7 @@ pre.log-viewer {
 
     <button class="nav-btn active" onclick="switchTab('dashboard', this)">⚡ لوحة التحكم والخدمات</button>
     <button class="nav-btn" onclick="switchTab('security', this)">🛡️ الفحص الأمني والنصائح (SecGuard)</button>
+    <button class="nav-btn" onclick="switchTab('upgrader', this)">🚀 ترقية أكواد PHP (Code Upgrader)</button>
     <button class="nav-btn" onclick="switchTab('packages', this)">📥 مدير الحزم الهجين (Binaries)</button>
     <button class="nav-btn" onclick="switchTab('database', this)">🗄️ قواعد البيانات و phpMyAdmin</button>
     <button class="nav-btn" onclick="switchTab('php', this)">🐘 إعدادات PHP والامتدادات</button>
@@ -352,6 +353,65 @@ pre.log-viewer {
         <div class="card">
             <h3>💡 نصائح وتوصيات المستشار الذكي (Smart DevSecOps Advisories)</h3>
             <div id="sec-tips-list" style="display:flex;flex-direction:column;gap:10px;margin-top:10px;font-size:0.9rem;color:var(--text-main);"></div>
+        </div>
+    </section>
+
+    <!-- TAB: PHP CODE UPGRADER (phptransform Integration) -->
+    <section id="tab-upgrader" class="tab-pane">
+        <div class="card" style="margin-bottom:18px;">
+            <h3>
+                <span>🚀 محرك ترقية أكواد PHP القديم (5.x / 7.x) إلى PHP 8.5 (Tokenizer Engine)</span>
+                <button class="btn btn-sm" onclick="launchUpgraderStudio()">🖥️ فتح استوديو PHP Upgrader المستقل (Wails)</button>
+            </h3>
+            <p style="color:var(--text-muted);font-size:0.86rem;margin-bottom:14px;">
+                مدمج بمحرك التحليل المعجمي (<code>phptransform</code>) لتحويل <code>array()</code>، <code>list()</code>، <code>$s{0}</code>، منشئات PHP 4، <code>create_function</code>، <code>ereg/split</code>، <code>utf8_encode</code>، والمعاملات القابلة لـ <code>null</code>، مع فحص نحوي فوري عبر <code>php -l</code> (PHP 8.5.12):
+            </p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+                <input type="text" id="upg-folder" value="E:\axamp\htdocs" placeholder="مسار مجلد المشروع أو اسمه داخل htdocs..." style="flex:1;min-width:240px;">
+                <select id="upg-target" style="width:170px;">
+                    <option value="8.5" selected>الهدف: PHP 8.5</option>
+                    <option value="8.4">الهدف: PHP 8.4</option>
+                    <option value="8.3">الهدف: PHP 8.3</option>
+                    <option value="8.2">الهدف: PHP 8.2</option>
+                </select>
+                <label style="font-size:0.84rem;"><input type="checkbox" id="upg-backup" checked> حفظ نسخة <code>.bak</code></label>
+                <label style="font-size:0.84rem;"><input type="checkbox" id="upg-strict"> إضافة <code>strict_types=1</code></label>
+                <button class="btn" onclick="runFolderUpgrade(true)">🔍 فحص ومعاينة (Dry-Run)</button>
+                <button class="btn btn-success" onclick="runFolderUpgrade(false)">⚡ ترقية ملفات المجلد الآن</button>
+            </div>
+            <div id="upg-folder-summary" style="margin-top:14px;"></div>
+        </div>
+
+        <div class="card">
+            <h3>🧪 المختبر الفوري لترقية كود PHP (Interactive Code Upgrader & PHP 8.5 Linter)</h3>
+            <div class="grid-2" style="margin-top:10px;">
+                <div>
+                    <label style="font-size:0.82rem;color:var(--text-muted);display:block;margin-bottom:6px;">الكود القديم (PHP 5 / 7):</label>
+                    <textarea id="upg-src" style="width:100%;height:220px;background:#070b14;color:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:12px;font-family:Consolas,monospace;font-size:0.84rem;direction:ltr;text-align:left;">&lt;?php
+class UserAccount {
+    var $name;
+    function UserAccount($name) {
+        $this->name = $name;
+    }
+    function firstChar(string $prefix = null) {
+        $items = array(1, 2, 3);
+        list($a, $b) = $items;
+        $ch = $this->name{0};
+        return utf8_encode($ch);
+    }
+}
+?&gt;</textarea>
+                </div>
+                <div>
+                    <label style="font-size:0.82rem;color:var(--text-muted);display:block;margin-bottom:6px;">الكود المرقّى (PHP 8.5 Ready):</label>
+                    <textarea id="upg-out" readonly style="width:100%;height:220px;background:#070b14;color:#38bdf8;border:1px solid var(--border);border-radius:10px;padding:12px;font-family:Consolas,monospace;font-size:0.84rem;direction:ltr;text-align:left;"></textarea>
+                </div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;flex-wrap:wrap;gap:10px;">
+                <button class="btn btn-primary" onclick="runSnippetUpgrade()">⚡ تحويل الكود وفحصه بـ PHP 8.5.12 الآن</button>
+                <span id="upg-lint-badge" style="font-size:0.86rem;"></span>
+            </div>
+            <div id="upg-changes-list" style="margin-top:12px;font-size:0.84rem;"></div>
         </div>
     </section>
 
@@ -793,6 +853,78 @@ async function applySecurityFix(action) {
     } else {
         alert('خطأ: ' + res.error);
     }
+}
+
+async function runSnippetUpgrade() {
+    const code = document.getElementById('upg-src').value;
+    const target_version = document.getElementById('upg-target').value;
+    const strict_types = document.getElementById('upg-strict').checked;
+    const data = await api('/api/upgrader', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'snippet', code, target_version, strict_types })
+    });
+    if (!data || !data.result) return;
+    document.getElementById('upg-out').value = data.result.code;
+    const lintEl = document.getElementById('upg-lint-badge');
+    lintEl.innerHTML = data.syntax_ok
+        ? `<span class="badge badge-running">✅ فحص PHP 8.5.12 النحوي سليم: ${data.syntax_msg}</span>`
+        : `<span class="badge badge-missing">⚠️ خطأ نحوي: ${data.syntax_msg}</span>`;
+
+    const chEl = document.getElementById('upg-changes-list');
+    chEl.innerHTML = (data.result.changes || []).map(c => `
+        <div style="padding:6px 10px;border-bottom:1px solid var(--border);">
+            <strong style="color:${c.kind === 'fix' ? 'var(--success)' : 'var(--warning)'}">[${c.kind === 'fix' ? 'إصلاح تلقائي' : 'تنبيه مراجعة'}]</strong>
+            السطر ${c.line} (<code>${c.rule}</code>): ${c.description}
+        </div>
+    `).join('') || 'لا توجد تغييرات مطلوبة.';
+}
+
+async function runFolderUpgrade(dry_run) {
+    const folder = document.getElementById('upg-folder').value.trim();
+    const target_version = document.getElementById('upg-target').value;
+    const backup = document.getElementById('upg-backup').checked;
+    const strict_types = document.getElementById('upg-strict').checked;
+    const sumEl = document.getElementById('upg-folder-summary');
+    sumEl.innerHTML = '⏳ جاري تحليل ملفات المشروع...';
+
+    const res = await api('/api/upgrader', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'folder', folder, target_version, dry_run, backup, strict_types })
+    });
+    if (res.error) {
+        sumEl.innerHTML = `<span style="color:var(--danger)">❌ ${res.error}</span>`;
+        return;
+    }
+    const modeLabel = dry_run ? 'معاينة فقط (Dry-Run)' : 'تم التحديث الفعلي على الملفات';
+    let html = `
+        <div style="background:var(--bg-dark);padding:12px 16px;border-radius:10px;border:1px solid var(--border);">
+            <strong>📊 نتيجة الفحص (${modeLabel}):</strong>
+            تم فحص <code>${res.scanned}</code> ملف PHP |
+            ملفات قابلة للترقية: <strong style="color:var(--accent)">${res.upgraded}</strong> |
+            إجمالي الإصلاحات التلقائية: <strong style="color:var(--success)">${res.total_fixed}</strong> |
+            تنبيهات تحتاج مراجعة بشرية: <strong style="color:var(--warning)">${res.total_notices}</strong>
+        </div>
+    `;
+    if (res.reports && res.reports.length) {
+        html += `<table style="margin-top:10px;"><thead><tr><th>الملف</th><th>إصلاحات</th><th>تنبيهات</th><th>الحالة</th></tr></thead><tbody>` +
+            res.reports.slice(0, 30).map(r => `
+                <tr>
+                    <td><code>${r.rel_path}</code></td>
+                    <td style="color:var(--success)">${r.fixed}</td>
+                    <td style="color:var(--warning)">${r.notices}</td>
+                    <td>${r.written ? (r.syntax_ok ? '✅ تم التحديث وفحص php -l' : '⚠️ ' + r.syntax_msg) : 'معاينة'}</td>
+                </tr>
+            `).join('') + `</tbody></table>`;
+    }
+    sumEl.innerHTML = html;
+}
+
+async function launchUpgraderStudio() {
+    const res = await api('/api/upgrader', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'launch_studio' })
+    });
+    if (!res.ok) alert('تنبيه: ' + res.error);
 }
 
 function renderPackages(pkgs) {
