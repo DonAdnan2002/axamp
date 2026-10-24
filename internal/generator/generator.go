@@ -13,6 +13,7 @@ import (
 func GenerateAll(cfg *config.AppConfig, hw profiler.HardwareProfile) error {
 	dirs := []string{
 		filepath.Join(cfg.RootDir, "bin", "apache"),
+		filepath.Join(cfg.RootDir, "bin", "apache", "logs"),
 		filepath.Join(cfg.RootDir, "bin", "php"),
 		filepath.Join(cfg.RootDir, "bin", "mysql"),
 		filepath.Join(cfg.RootDir, "conf"),
@@ -216,6 +217,7 @@ Alias /adminer "%s/tools/adminer"
     Require all denied
 </Files>
 
+PidFile "%s/logs/httpd.pid"
 ErrorLog "%s/logs/apache_error.log"
 LogLevel %s
 
@@ -244,6 +246,7 @@ LogLevel %s
 		root,
 		root,
 		dirOptions,
+		root,
 		root,
 		root,
 		root,

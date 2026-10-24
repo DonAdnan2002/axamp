@@ -338,6 +338,12 @@ func (m *Manager) StartApache() error {
 		return fmt.Errorf("%s", reason)
 	}
 
+	// Ensure PID and log directories exist and clean stale PID files before starting (even on OneDrive/Desktop folders)
+	_ = os.MkdirAll(filepath.Join(m.cfg.RootDir, "logs"), 0755)
+	_ = os.MkdirAll(filepath.Join(m.cfg.RootDir, "bin", "apache", "logs"), 0755)
+	_ = os.Remove(filepath.Join(m.cfg.RootDir, "logs", "httpd.pid"))
+	_ = os.Remove(filepath.Join(m.cfg.RootDir, "bin", "apache", "logs", "httpd.pid"))
+
 	var stderrBuf bytes.Buffer
 	cmd := exec.Command(bin, "-f", confFile)
 	cmd.Dir = filepath.Join(m.cfg.RootDir, "bin", "apache")
@@ -465,6 +471,7 @@ func (m *Manager) StopApache() error {
 	}
 
 	// Clean up stale httpd.pid if left behind
+	_ = os.Remove(filepath.Join(m.cfg.RootDir, "logs", "httpd.pid"))
 	_ = os.Remove(filepath.Join(m.cfg.RootDir, "bin", "apache", "logs", "httpd.pid"))
 	return nil
 }
