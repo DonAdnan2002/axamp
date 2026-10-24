@@ -505,6 +505,8 @@ $cfg['Servers'][$i]['AllowNoPassword'] = true;
 $cfg['UploadDir'] = '';
 $cfg['SaveDir'] = '';
 $cfg['TempDir'] = '%s/tmp';
+$cfg['SendErrorReports'] = 'never';
+$cfg['PmaNoRelation_DisableWarning'] = true;
 `, cfg.MySQLPort, slashPath(cfg.RootDir))
 	_ = os.WriteFile(filepath.Join(pmaDir, "config.inc.php"), []byte(pmaConfig), 0644)
 
