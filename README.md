@@ -43,6 +43,13 @@
 8. **🛡️ Embedded Desktop GUI & PIN-Protected LAN Control (`internal/server`):**
    - Zero-dependency embedded UI launched as a native-like Windows App window (`http://127.0.0.1:4040`) with optional PIN-protected remote LAN management.
 
+9. **🛡️ Automated Local Security Auditor & DevSecOps Advisories (`internal/secguard`):**
+   - Real-time security scoring (`0–100`) and grading (`A+` to `D`), scanning `php.ini` (including Oct 2026 CVE-2026-109618/109619 mitigations & dangerous functions), `httpd.conf`, `phpMyAdmin` auth modes, and exposed secrets inside `htdocs/` (`.env`, `.git`, `.sql`).
+   - One-click **Auto-Hardening** (`.htaccess` secret protection, `disable_functions` hardening, production mode switching).
+
+10. **🚀 Integrated PHP 5.x/7.x $\rightarrow$ 8.5 Code Upgrader (`internal/phptransform` & `internal/upgrader`):**
+    - Built-in lexical tokenizer engine to upgrade legacy PHP code (`array()`, `list()`, `$str{0}`, PHP 4 constructors, constructor property promotion, `create_function`, `ereg/split`, `utf8_encode`, implicit nullable types) with live **`PHP 8.5.12 -l` syntax verification** and `.bak` backup support.
+
 ---
 
 ## 🛠️ Quick Start | البدء السريع
