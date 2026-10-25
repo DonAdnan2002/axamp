@@ -58,6 +58,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/vhosts", s.authMiddleware(s.handleVHosts))
 	mux.HandleFunc("/api/logs", s.authMiddleware(s.handleLogs))
 	mux.HandleFunc("/api/security", s.authMiddleware(s.handleSecurity))
+	mux.HandleFunc("/api/live-stats", s.authMiddleware(s.handleLiveStats))
 	mux.HandleFunc("/api/upgrader", s.authMiddleware(s.handleUpgrader))
 	mux.HandleFunc("/api/settings", s.authMiddleware(s.handleSettings))
 	mux.HandleFunc("/api/quick-open", s.authMiddleware(s.handleQuickOpen))
@@ -102,11 +103,13 @@ func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 	hw := profiler.InspectSystem()
 	projects := listHtdocsProjects(s.cfg.RootDir)
 	phpVersions := listPHPVersions(s.cfg.RootDir)
+	live := profiler.GetLiveMetrics(s.cfg.ApachePort, s.cfg.MySQLPort, s.cfg.ControlPort)
 
 	payload := map[string]interface{}{
 		"is_local":     isLocalRequest(r),
 		"config":       s.cfg,
 		"hardware":     hw,
+		"live_metrics": live,
 		"services":     s.sup.Status(),
 		"packages":     s.pkg.InspectPackages(),
 		"events":       s.sup.GetEvents(),
@@ -117,6 +120,11 @@ func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 		"security":     secguard.AuditStack(s.cfg),
 	}
 	_ = json.NewEncoder(w).Encode(payload)
+}
+
+func (s *Server) handleLiveStats(w http.ResponseWriter, r *http.Request) {
+	live := profiler.GetLiveMetrics(s.cfg.ApachePort, s.cfg.MySQLPort, s.cfg.ControlPort)
+	_ = json.NewEncoder(w).Encode(live)
 }
 
 func (s *Server) handleServiceAction(w http.ResponseWriter, r *http.Request) {

@@ -4,12 +4,14 @@
 !AXAMP-v1.0.0-Setup.exe
 !AXAMP-v1.1.0-Setup.exe
 !AXAMP-v1.2.0-Setup.exe
+!AXAMP-v2.0.0-Setup.exe
 dist/*-Full-Offline-Stack.zip
 bin/apache/
 bin/php/
 bin/mysql/
 tools/phpmyadmin/
 tmp/
+testikng/
 
 # Runtime Data, Backups & Generated Configs
 data/

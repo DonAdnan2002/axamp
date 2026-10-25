@@ -30,7 +30,7 @@ func main() {
 	}
 
 	fmt.Println("====================================================")
-	fmt.Println("   AXAMP v1.2.0 — Smart Portable Server Engine      ")
+	fmt.Println("   AXAMP v2.0.0 — Smart Portable Server Engine      ")
 	fmt.Println("   مبتكر النظام: عدنان سلطان حسن                    ")
 	fmt.Println("   Creator: Adnan Sultan Hassan <donadnan2002@gmail.com>")
 	fmt.Println("====================================================")

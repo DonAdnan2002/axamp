@@ -530,6 +530,30 @@ class TLayout {
 	}
 }
 
+func TestConflictingPromotedPropertiesFix(t *testing.T) {
+	src := `<?php
+class TLayout {
+    public $name = "";
+    public $style = "";
+    public $styleMobile = "";
+    function __construct(public $name, public $style, public $styleMobile) {
+    }
+}`
+	opts := allOn()
+	opts.ConstructorPromotion = false
+	res := run(t, src, opts)
+
+	if strings.Contains(res.Code, "public $name,") || strings.Contains(res.Code, "public $style,") {
+		t.Errorf("Conflicting public modifier in constructor parameter was not stripped:\n%s", res.Code)
+	}
+	if !strings.Contains(res.Code, "$this->name = $name;") {
+		t.Errorf("Assignment $this->name = $name; was not generated:\n%s", res.Code)
+	}
+	if !strings.Contains(res.Code, "$this->style = $style;") {
+		t.Errorf("Assignment $this->style = $style; was not generated:\n%s", res.Code)
+	}
+}
+
 func TestLegacyErrorReportingAndEStrict(t *testing.T) {
 	src := `<?php
 error_reporting(E_ALL ^ E_NOTICE ^ E_DEPRECATED ^ E_STRICT);
@@ -560,6 +584,79 @@ class LegacyRunnerPage {
 
 	if !strings.Contains(res.Code, "#[\\AllowDynamicProperties]\nclass LegacyRunnerPage") {
 		t.Errorf("Expected #[\\AllowDynamicProperties] attribute:\n%s", res.Code)
+	}
+}
+
+func TestLegacyMysqlConstants(t *testing.T) {
+	src := `<?php
+$row = mysqli_fetch_array($res, MYSQL_ASSOC);
+$row2 = mysqli_fetch_array($res, MYSQL_NUM);
+$row3 = mysqli_fetch_array($res, MYSQL_BOTH);
+`
+	opts := allOn()
+	opts.TargetVersion = "8.5"
+	res := run(t, src, opts)
+
+	if strings.Contains(res.Code, "MYSQL_ASSOC") || strings.Contains(res.Code, "MYSQL_NUM") || strings.Contains(res.Code, "MYSQL_BOTH") {
+		t.Errorf("Legacy ext/mysql constants should be converted to MYSQLI_*:\n%s", res.Code)
+	}
+	if !strings.Contains(res.Code, "MYSQLI_ASSOC") || !strings.Contains(res.Code, "MYSQLI_NUM") || !strings.Contains(res.Code, "MYSQLI_BOTH") {
+		t.Errorf("Expected MYSQLI_* constants in output:\n%s", res.Code)
+	}
+}
+
+func TestPostvalueNumber(t *testing.T) {
+	src := `<?php
+function postvalue_number($key) {
+    return 0 + postvalue($key);
+}
+`
+	opts := allOn()
+	opts.TargetVersion = "8.5"
+	res := run(t, src, opts)
+
+	if strings.Contains(res.Code, "return 0 + postvalue($key);") {
+		t.Errorf("Unsafe 0 + postvalue() should be modernized for PHP 8:\n%s", res.Code)
+	}
+	if !strings.Contains(res.Code, "is_numeric") || !strings.Contains(res.Code, "intval") {
+		t.Errorf("Expected is_numeric & intval checks in modernized postvalue_number:\n%s", res.Code)
+	}
+}
+
+func TestMagicQuotesFix(t *testing.T) {
+	src := `<?php
+if (get_magic_quotes_gpc()) {
+    $x = stripslashes($x);
+}
+$mq = get_magic_quotes_runtime();
+`
+	opts := allOn()
+	opts.TargetVersion = "8.5"
+	res := run(t, src, opts)
+
+	if strings.Contains(res.Code, "get_magic_quotes_gpc()") || strings.Contains(res.Code, "get_magic_quotes_runtime()") {
+		t.Errorf("get_magic_quotes_* should be replaced with false:\n%s", res.Code)
+	}
+	if !strings.Contains(res.Code, "if (false)") || !strings.Contains(res.Code, "$mq = false;") {
+		t.Errorf("Expected false in place of get_magic_quotes_*:\n%s", res.Code)
+	}
+}
+
+func TestLegacyCountNull(t *testing.T) {
+	src := `<?php
+if (!count($this->menuNodes[$name])) {
+    $x = 1;
+}
+`
+	opts := allOn()
+	opts.TargetVersion = "8.5"
+	res := run(t, src, opts)
+
+	if strings.Contains(res.Code, "!count($this->menuNodes") {
+		t.Errorf("!count($this->menuNodes) should be converted to empty():\n%s", res.Code)
+	}
+	if !strings.Contains(res.Code, "if (empty($this->menuNodes[$name]))") {
+		t.Errorf("Expected empty($this->menuNodes[$name]):\n%s", res.Code)
 	}
 }
 

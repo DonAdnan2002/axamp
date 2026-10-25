@@ -174,6 +174,79 @@ pre.log-viewer {
     background: rgba(245,158,11,0.14); border: 1px solid var(--warning);
     color: #fcd34d; padding: 12px 16px; border-radius: 10px; margin-bottom: 14px; font-size: 0.88rem;
 }
+
+/* Bilingual LTR Overrides */
+html[dir="ltr"] .sidebar {
+    border-left: none;
+    border-right: 1px solid var(--border);
+}
+html[dir="ltr"] .nav-btn {
+    text-align: left;
+}
+html[dir="ltr"] table th,
+html[dir="ltr"] table td {
+    text-align: left;
+}
+html[dir="ltr"] .mode-switch-box div {
+    text-align: left;
+}
+
+/* Pulsing Live Telemetry Badge */
+.pulse-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: #22c55e;
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+    animation: pulse-ring 1.8s infinite;
+    display: inline-block;
+}
+@keyframes pulse-ring {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+}
+.live-pulse {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.3);
+    color: #4ade80; font-size: 0.75rem; font-weight: bold;
+    padding: 3px 10px; border-radius: 99px;
+}
+
+/* Live Charts Styling */
+.chart-box {
+    background: var(--bg-dark); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px; position: relative;
+    overflow: hidden; display: flex; flex-direction: column; justify-content: space-between;
+}
+.chart-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 8px;
+}
+.chart-title { font-size: 0.83rem; font-weight: 700; color: var(--text-main); }
+.chart-sub { font-size: 0.73rem; color: var(--text-muted); margin-top: 2px; }
+.chart-val-badge { font-size: 1.2rem; font-weight: 800; font-family: monospace; }
+.svg-chart-container {
+    width: 100%; height: 75px; position: relative; margin-top: 6px;
+}
+.svg-chart-container svg {
+    width: 100%; height: 100%; overflow: visible; display: block;
+}
+
+/* Language Switcher */
+.lang-switch-box {
+    display: inline-flex; gap: 3px; background: var(--bg-card);
+    border: 1px solid var(--border); border-radius: 99px; padding: 3px;
+    align-items: center;
+}
+.lang-pill {
+    padding: 4px 11px; border-radius: 99px; border: none;
+    background: transparent; color: var(--text-muted); font-size: 0.77rem;
+    font-weight: 700; cursor: pointer; transition: all 0.15s;
+    display: inline-flex; align-items: center; gap: 4px;
+}
+.lang-pill:hover { color: var(--text-main); }
+.lang-pill.active {
+    background: var(--accent-dark); color: #fff;
+    box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
+}
 </style>
 </head>
 <body>
@@ -182,31 +255,31 @@ pre.log-viewer {
     <div class="brand">
         <img src="/logo.png" alt="AXAMP" style="width:46px;height:46px;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,0.4);">
         <div class="brand-text">
-            <h1>AXAMP <small style="font-size:0.75rem;color:var(--accent);">v1.1</small></h1>
-            <span>Smart Local Server</span>
+            <h1>AXAMP <small style="font-size:0.75rem;color:var(--accent);">v2.0</small></h1>
+            <span data-i18n="sub_title">Smart Local Server</span>
         </div>
     </div>
 
-    <button class="nav-btn active" onclick="switchTab('dashboard', this)">⚡ لوحة التحكم والخدمات</button>
-    <button class="nav-btn" onclick="switchTab('security', this)">🛡️ الفحص الأمني والنصائح (SecGuard)</button>
-    <button class="nav-btn" onclick="switchTab('upgrader', this)">🚀 ترقية أكواد PHP (Code Upgrader)</button>
-    <button class="nav-btn" onclick="switchTab('packages', this)">📥 مدير الحزم الهجين (Binaries)</button>
-    <button class="nav-btn" onclick="switchTab('database', this)">🗄️ قواعد البيانات و phpMyAdmin</button>
-    <button class="nav-btn" onclick="switchTab('php', this)">🐘 إعدادات PHP والامتدادات</button>
-    <button class="nav-btn" onclick="switchTab('odbc', this)">🔌 مدير مصادر بيانات ODBC</button>
-    <button class="nav-btn" onclick="switchTab('migrate', this)">📦 الترقية من XAMPP قديم</button>
-    <button class="nav-btn" onclick="switchTab('vhosts', this)">🌐 النطاقات المحلية (.test)</button>
-    <button class="nav-btn" onclick="switchTab('logs', this)">📜 السجلات الحية (Live Logs)</button>
-    <button class="nav-btn" onclick="switchTab('remote', this)">🛡️ الوصول البعيد والإعدادات</button>
+    <button class="nav-btn active" onclick="switchTab('dashboard', this)" data-i18n="nav_dashboard">⚡ لوحة التحكم والخدمات</button>
+    <button class="nav-btn" onclick="switchTab('security', this)" data-i18n="nav_security">🛡️ الفحص الأمني والنصائح (SecGuard)</button>
+    <button class="nav-btn" onclick="switchTab('upgrader', this)" data-i18n="nav_upgrader">🚀 ترقية أكواد PHP (Code Upgrader)</button>
+    <button class="nav-btn" onclick="switchTab('packages', this)" data-i18n="nav_packages">📥 مدير الحزم الهجين (Binaries)</button>
+    <button class="nav-btn" onclick="switchTab('database', this)" data-i18n="nav_database">🗄️ قواعد البيانات و phpMyAdmin</button>
+    <button class="nav-btn" onclick="switchTab('php', this)" data-i18n="nav_php">🐘 إعدادات PHP والامتدادات</button>
+    <button class="nav-btn" onclick="switchTab('odbc', this)" data-i18n="nav_odbc">🔌 مدير مصادر بيانات ODBC</button>
+    <button class="nav-btn" onclick="switchTab('migrate', this)" data-i18n="nav_migrate">📦 الترقية من XAMPP قديم</button>
+    <button class="nav-btn" onclick="switchTab('vhosts', this)" data-i18n="nav_vhosts">🌐 النطاقات المحلية (.test)</button>
+    <button class="nav-btn" onclick="switchTab('logs', this)" data-i18n="nav_logs">📜 السجلات الحية (Live Logs)</button>
+    <button class="nav-btn" onclick="switchTab('remote', this)" data-i18n="nav_remote">🛡️ الوصول البعيد والإعدادات</button>
 
     <div class="mode-switch-box">
-        <label>نمط تشغيل السيرفر الحالي:</label>
+        <label data-i18n="mode_label">نمط تشغيل السيرفر الحالي:</label>
         <div class="mode-pills">
-            <div id="pill-dev" class="mode-pill active-dev" onclick="setMode('development')">تطوير (Dev)</div>
-            <div id="pill-prod" class="mode-pill" onclick="setMode('production')">إنتاجية (Prod)</div>
+            <div id="pill-dev" class="mode-pill active-dev" onclick="setMode('development')" data-i18n="mode_dev">تطوير (Dev)</div>
+            <div id="pill-prod" class="mode-pill" onclick="setMode('production')" data-i18n="mode_prod">إنتاجية (Prod)</div>
         </div>
         <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:0.77rem;color:var(--text-muted);line-height:1.5;">
-            👨‍💻 مبتكر النظام:<br>
+            <span data-i18n="creator_side">👨‍💻 مبتكر النظام:</span><br>
             <strong style="color:var(--accent);">عدنان سلطان حسن</strong><br>
             <a href="mailto:donadnan2002@gmail.com" style="color:var(--text-main);text-decoration:none;">donadnan2002@gmail.com</a>
         </div>
@@ -216,19 +289,27 @@ pre.log-viewer {
 <main class="main">
     <div class="topbar">
         <div>
-            <h2 style="margin:0;font-size:1.35rem;" id="page-title">لوحة التحكم الذكية — AXAMP v1.1</h2>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                <h2 style="margin:0;font-size:1.35rem;" id="page-title">
+                    <span data-i18n="app_title">لوحة التحكم الذكية</span> — AXAMP <span style="color:var(--accent);">v2.0</span>
+                </h2>
+                <div class="lang-switch-box">
+                    <button id="lang-btn-ar" class="lang-pill active" onclick="switchLanguage('ar')">🇸🇦 العربية</button>
+                    <button id="lang-btn-en" class="lang-pill" onclick="switchLanguage('en')">🇬🇧 English</button>
+                </div>
+            </div>
             <small style="color:var(--text-muted);" id="root-path-label">جاري الفحص...</small>
             <div style="font-size:0.8rem;color:var(--accent);margin-top:3px;">
-                ابتكار وتطوير: <strong>عدنان سلطان حسن</strong> (<code>donadnan2002@gmail.com</code>)
+                <span data-i18n="creator_title">ابتكار وتطوير:</span> <strong>عدنان سلطان حسن</strong> (<code>donadnan2002@gmail.com</code>)
             </div>
         </div>
         <div class="quick-actions">
-            <button class="btn btn-success" onclick="serviceAction('all','start')">▶ تشغيل الكل</button>
-            <button class="btn btn-danger" onclick="serviceAction('all','stop')">⏹ إيقاف الكل</button>
-            <button class="btn" onclick="quickOpen('htdocs')">📂 مجلد htdocs</button>
-            <button class="btn" onclick="quickOpen('localhost')">🌍 فتح localhost</button>
-            <button class="btn btn-primary" onclick="quickOpen('adminer')">⚡ SQL Studio</button>
-            <button class="btn" onclick="quickOpen('phpmyadmin')">🐬 phpMyAdmin</button>
+            <button class="btn btn-success" onclick="serviceAction('all','start')" data-i18n="btn_start_all">▶ تشغيل الكل</button>
+            <button class="btn btn-danger" onclick="serviceAction('all','stop')" data-i18n="btn_stop_all">⏹ إيقاف الكل</button>
+            <button class="btn" onclick="quickOpen('htdocs')" data-i18n="btn_htdocs">📂 مجلد htdocs</button>
+            <button class="btn" onclick="quickOpen('localhost')" data-i18n="btn_localhost">🌍 فتح localhost</button>
+            <button class="btn btn-primary" onclick="quickOpen('adminer')" data-i18n="btn_sql">⚡ SQL Studio</button>
+            <button class="btn" onclick="quickOpen('phpmyadmin')" data-i18n="btn_pma">🐬 phpMyAdmin</button>
         </div>
     </div>
 
@@ -236,22 +317,146 @@ pre.log-viewer {
     <section id="tab-dashboard" class="tab-pane active">
         <div class="grid-4">
             <div class="stat-card">
-                <span>ذاكرة الحاسبة الحية (RAM)</span>
+                <span data-i18n="stat_ram">ذاكرة الحاسبة الحية (RAM)</span>
                 <strong id="hw-ram">--</strong>
                 <div class="progress-bar"><div id="ram-bar" class="progress-fill"></div></div>
             </div>
             <div class="stat-card">
-                <span>أنوية المعالج (CPU Cores)</span>
-                <strong id="hw-cpu">--</strong>
-                <div class="progress-bar"><div class="progress-fill" style="width:100%"></div></div>
+                <span data-i18n="stat_cpu">استهلاك المعالج اللحظي (CPU)</span>
+                <strong id="hw-cpu-load">--</strong>
+                <div class="progress-bar"><div id="cpu-load-bar" class="progress-fill"></div></div>
             </div>
             <div class="stat-card">
-                <span>تخصيص PHP Memory</span>
+                <span data-i18n="stat_conns">الاتصالات النشطة الحالية</span>
+                <strong id="hw-active-conns" style="color:var(--success);">--</strong>
+                <div class="progress-bar"><div id="conns-bar" class="progress-fill" style="background:#22c55e;"></div></div>
+            </div>
+            <div class="stat-card">
+                <span data-i18n="stat_php_mem">تخصيص PHP Memory</span>
                 <strong id="hw-php-mem">--</strong>
+                <small id="hw-cpu-meta" style="color:var(--text-muted);font-size:0.75rem;display:block;margin-top:4px;">--</small>
             </div>
-            <div class="stat-card">
-                <span>تخصيص MySQL InnoDB</span>
-                <strong id="hw-innodb">--</strong>
+        </div>
+
+        <!-- Real-Time Server Telemetry & Incoming Connections Section -->
+        <div class="card" style="margin-bottom:20px;border-color:rgba(56,189,248,0.35);background:linear-gradient(180deg, #151f32 0%, #0f172a 100%);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <h3 style="margin:0;font-size:1.12rem;" data-i18n="telemetry_title">📈 مراقبة السيرفر الحية والاتصالات الواردة (Live Server Monitor)</h3>
+                    <span class="live-pulse"><span class="pulse-dot"></span> <span data-i18n="live_pulse_lbl">تحديث لحظي حي</span></span>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <span style="font-size:0.8rem;color:var(--text-muted);" data-i18n="active_conns_lbl">إجمالي الاتصالات النشطة:</span>
+                    <strong id="live-total-conns-badge" class="badge badge-running" style="font-size:0.85rem;padding:4px 12px;">0</strong>
+                </div>
+            </div>
+
+            <!-- 3 Live SVG Metric Charts -->
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:14px;margin-bottom:16px;">
+                <!-- CPU Load Chart -->
+                <div class="chart-box">
+                    <div class="chart-header">
+                        <div>
+                            <span class="chart-title" data-i18n="chart_cpu_title">مخطط استهلاك المعالج (CPU Load)</span>
+                            <div class="chart-sub" id="chart-cpu-sub">0% لحظي</div>
+                        </div>
+                        <span class="chart-val-badge" id="chart-cpu-val" style="color:var(--accent);">0%</span>
+                    </div>
+                    <div class="svg-chart-container">
+                        <svg id="svg-cpu-chart" viewBox="0 0 300 80" preserveAspectRatio="none">
+                            <defs>
+                                <linearGradient id="grad-cpu" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.45" />
+                                    <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.0" />
+                                </linearGradient>
+                            </defs>
+                            <path id="svg-cpu-area" d="" fill="url(#grad-cpu)" />
+                            <path id="svg-cpu-line" d="" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- RAM Usage Chart -->
+                <div class="chart-box">
+                    <div class="chart-header">
+                        <div>
+                            <span class="chart-title" data-i18n="chart_ram_title">مخطط استهلاك الذاكرة (RAM Usage)</span>
+                            <div class="chart-sub" id="chart-ram-sub">0 MB مستخدم</div>
+                        </div>
+                        <span class="chart-val-badge" id="chart-ram-val" style="color:#a855f7;">0%</span>
+                    </div>
+                    <div class="svg-chart-container">
+                        <svg id="svg-ram-chart" viewBox="0 0 300 80" preserveAspectRatio="none">
+                            <defs>
+                                <linearGradient id="grad-ram" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stop-color="#a855f7" stop-opacity="0.45" />
+                                    <stop offset="100%" stop-color="#a855f7" stop-opacity="0.0" />
+                                </linearGradient>
+                            </defs>
+                            <path id="svg-ram-area" d="" fill="url(#grad-ram)" />
+                            <path id="svg-ram-line" d="" fill="none" stroke="#a855f7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Active Concurrent Connections Chart -->
+                <div class="chart-box">
+                    <div class="chart-header">
+                        <div>
+                            <span class="chart-title" data-i18n="chart_conn_title">مخطط تدفق الاتصالات (TCP Connections)</span>
+                            <div class="chart-sub" id="chart-conn-sub">0 اتصال نشط</div>
+                        </div>
+                        <span class="chart-val-badge" id="chart-conn-val" style="color:#22c55e;">0</span>
+                    </div>
+                    <div class="svg-chart-container">
+                        <svg id="svg-conn-chart" viewBox="0 0 300 80" preserveAspectRatio="none">
+                            <defs>
+                                <linearGradient id="grad-conn" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stop-color="#22c55e" stop-opacity="0.45" />
+                                    <stop offset="100%" stop-color="#22c55e" stop-opacity="0.0" />
+                                </linearGradient>
+                            </defs>
+                            <path id="svg-conn-area" d="" fill="url(#grad-conn)" />
+                            <path id="svg-conn-line" d="" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Incoming Connections Live Table -->
+            <div style="background:var(--bg-dark);border:1px solid var(--border);border-radius:12px;padding:14px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-weight:bold;font-size:0.92rem;" data-i18n="conns_table_title">🌐 جدول مراقبة الاتصالات الواردة المباشرة للسيرفر</span>
+                    </div>
+                    <div style="display:flex;gap:6px;align-items:center;">
+                        <span class="badge" style="background:rgba(56,189,248,0.15);color:var(--accent);">Apache: <b id="conns-ap-count">0</b></span>
+                        <span class="badge" style="background:rgba(168,85,247,0.15);color:#c084fc;">MySQL: <b id="conns-my-count">0</b></span>
+                        <span class="badge" style="background:rgba(34,197,94,0.15);color:var(--success);">Dashboard: <b id="conns-ct-count">0</b></span>
+                    </div>
+                </div>
+
+                <div style="max-height:220px;overflow-y:auto;border-radius:8px;">
+                    <table style="margin-top:0;">
+                        <thead>
+                            <tr>
+                                <th data-i18n="th_proto">البروتوكول</th>
+                                <th data-i18n="th_remote_ip">عنوان العميل المتصل (Client IP)</th>
+                                <th data-i18n="th_remote_port">المنفذ البعيد</th>
+                                <th data-i18n="th_service">الخدمة المستهدفة</th>
+                                <th data-i18n="th_local_port">المنفذ المحلي</th>
+                                <th data-i18n="th_state">حالة الاتصال (State)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="live-conns-table-body">
+                            <tr>
+                                <td colspan="6" style="text-align:center;color:var(--text-muted);padding:18px;" data-i18n="no_conns">
+                                    لا توجد اتصالات واردة نشطة حالياً — خوادم Apache و MySQL بانتظار الطلبات.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -259,30 +464,30 @@ pre.log-viewer {
             <!-- Apache Card -->
             <div class="card">
                 <h3>
-                    <span>🌐 خادم الويب Apache HTTP</span>
+                    <span data-i18n="apache_title">🌐 خادم الويب Apache HTTP</span>
                     <span id="apache-badge" class="badge badge-stopped">متوقف</span>
                 </h3>
                 <p style="color:var(--text-muted);font-size:0.86rem;margin:6px 0 10px;">
-                    المنفذ النشط: <strong id="apache-port" style="color:var(--accent)">80</strong> |
-                    معرف العملية (PID): <strong id="apache-pid">-</strong> |
-                    التعافي التلقائي: <strong id="apache-restarts">0</strong>
+                    <span data-i18n="active_port">المنفذ النشط:</span> <strong id="apache-port" style="color:var(--accent)">80</strong> |
+                    <span data-i18n="pid_label">معرف العملية (PID):</span> <strong id="apache-pid">-</strong> |
+                    <span data-i18n="auto_heal">التعافي التلقائي:</span> <strong id="apache-restarts">0</strong>
                 </p>
                 <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;background:var(--bg-dark);padding:8px 10px;border-radius:10px;border:1px solid var(--border);">
-                    <span style="font-size:0.82rem;color:var(--text-muted);white-space:nowrap;">تغيير البورت:</span>
+                    <span style="font-size:0.82rem;color:var(--text-muted);white-space:nowrap;" data-i18n="change_port_lbl">تغيير البورت:</span>
                     <input type="text" id="dash-apache-port" placeholder="8080" style="width:90px;padding:6px 10px;text-align:center;font-weight:bold;direction:ltr;">
-                    <button class="btn btn-primary btn-sm" onclick="quickSaveAndRestartPort('apache')" style="flex:1;">💾 حفظ وإعادة تشغيل بالبورت الجديد</button>
+                    <button class="btn btn-primary btn-sm" onclick="quickSaveAndRestartPort('apache')" style="flex:1;" data-i18n="btn_save_port">💾 حفظ وإعادة تشغيل بالبورت الجديد</button>
                 </div>
                 <div id="apache-err" style="color:var(--warning);font-size:0.8rem;margin-bottom:10px;"></div>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
-                    <button class="btn btn-primary" onclick="serviceAction('apache','start')">▶ تشغيل مباشر</button>
-                    <button class="btn" onclick="serviceAction('apache','restart')">🔄 إعادة تشغيل</button>
-                    <button class="btn btn-danger" onclick="serviceAction('apache','stop')">⏹ إيقاف</button>
+                    <button class="btn btn-primary" onclick="serviceAction('apache','start')" data-i18n="btn_start">▶ تشغيل مباشر</button>
+                    <button class="btn" onclick="serviceAction('apache','restart')" data-i18n="btn_restart">🔄 إعادة تشغيل</button>
+                    <button class="btn btn-danger" onclick="serviceAction('apache','stop')" data-i18n="btn_stop">⏹ إيقاف</button>
                 </div>
-                <div style="border-top:1px solid var(--border);padding-top:10px;display:flex;align-items:center;justify-content:space-between;">
-                    <small style="color:var(--text-muted);">خدمة نظام ويندوز (<code>AXAMP_Apache</code>): <strong id="apache-winsvc">غير مثبتة</strong></small>
+                <div style="border-top:1px solid var(--border);padding-top:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+                    <small style="color:var(--text-muted);"><span data-i18n="win_svc_lbl">خدمة نظام ويندوز:</span> (<code>AXAMP_Apache</code>): <strong id="apache-winsvc">غير مثبتة</strong></small>
                     <div style="display:flex;gap:6px;">
-                        <button class="btn btn-sm" onclick="winServiceAction('apache','install')">تثبيت كخدمة</button>
-                        <button class="btn btn-sm" onclick="winServiceAction('apache','remove')">إلغاء الخدمة</button>
+                        <button class="btn btn-sm" onclick="winServiceAction('apache','install')" data-i18n="btn_install_svc">تثبيت كخدمة</button>
+                        <button class="btn btn-sm" onclick="winServiceAction('apache','remove')" data-i18n="btn_remove_svc">إلغاء الخدمة</button>
                     </div>
                 </div>
             </div>
@@ -290,30 +495,30 @@ pre.log-viewer {
             <!-- MySQL Card -->
             <div class="card">
                 <h3>
-                    <span>🗄️ محرك قواعد البيانات MySQL / MariaDB</span>
+                    <span data-i18n="mysql_title">🗄️ محرك قواعد البيانات MySQL / MariaDB</span>
                     <span id="mysql-badge" class="badge badge-stopped">متوقف</span>
                 </h3>
                 <p style="color:var(--text-muted);font-size:0.86rem;margin:6px 0 10px;">
-                    المنفذ النشط: <strong id="mysql-port" style="color:var(--accent)">3306</strong> |
-                    معرف العملية (PID): <strong id="mysql-pid">-</strong> |
-                    التعافي التلقائي: <strong id="mysql-restarts">0</strong>
+                    <span data-i18n="active_port">المنفذ النشط:</span> <strong id="mysql-port" style="color:var(--accent)">3306</strong> |
+                    <span data-i18n="pid_label">معرف العملية (PID):</span> <strong id="mysql-pid">-</strong> |
+                    <span data-i18n="auto_heal">التعافي التلقائي:</span> <strong id="mysql-restarts">0</strong>
                 </p>
                 <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;background:var(--bg-dark);padding:8px 10px;border-radius:10px;border:1px solid var(--border);">
-                    <span style="font-size:0.82rem;color:var(--text-muted);white-space:nowrap;">تغيير البورت:</span>
+                    <span style="font-size:0.82rem;color:var(--text-muted);white-space:nowrap;" data-i18n="change_port_lbl">تغيير البورت:</span>
                     <input type="text" id="dash-mysql-port" placeholder="3306" style="width:90px;padding:6px 10px;text-align:center;font-weight:bold;direction:ltr;">
-                    <button class="btn btn-primary btn-sm" onclick="quickSaveAndRestartPort('mysql')" style="flex:1;">💾 حفظ وإعادة تشغيل بالبورت الجديد</button>
+                    <button class="btn btn-primary btn-sm" onclick="quickSaveAndRestartPort('mysql')" style="flex:1;" data-i18n="btn_save_port">💾 حفظ وإعادة تشغيل بالبورت الجديد</button>
                 </div>
                 <div id="mysql-err" style="color:var(--warning);font-size:0.8rem;margin-bottom:10px;"></div>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
-                    <button class="btn btn-primary" onclick="serviceAction('mysql','start')">▶ تشغيل مباشر</button>
-                    <button class="btn" onclick="serviceAction('mysql','restart')">🔄 إعادة تشغيل</button>
-                    <button class="btn btn-danger" onclick="serviceAction('mysql','stop')">⏹ إيقاف</button>
+                    <button class="btn btn-primary" onclick="serviceAction('mysql','start')" data-i18n="btn_start">▶ تشغيل مباشر</button>
+                    <button class="btn" onclick="serviceAction('mysql','restart')" data-i18n="btn_restart">🔄 إعادة تشغيل</button>
+                    <button class="btn btn-danger" onclick="serviceAction('mysql','stop')" data-i18n="btn_stop">⏹ إيقاف</button>
                 </div>
-                <div style="border-top:1px solid var(--border);padding-top:10px;display:flex;align-items:center;justify-content:space-between;">
-                    <small style="color:var(--text-muted);">خدمة نظام ويندوز (<code>AXAMP_MySQL</code>): <strong id="mysql-winsvc">غير مثبتة</strong></small>
+                <div style="border-top:1px solid var(--border);padding-top:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+                    <small style="color:var(--text-muted);"><span data-i18n="win_svc_lbl">خدمة نظام ويندوز:</span> (<code>AXAMP_MySQL</code>): <strong id="mysql-winsvc">غير مثبتة</strong></small>
                     <div style="display:flex;gap:6px;">
-                        <button class="btn btn-sm" onclick="winServiceAction('mysql','install')">تثبيت كخدمة</button>
-                        <button class="btn btn-sm" onclick="winServiceAction('mysql','remove')">إلغاء الخدمة</button>
+                        <button class="btn btn-sm" onclick="winServiceAction('mysql','install')" data-i18n="btn_install_svc">تثبيت كخدمة</button>
+                        <button class="btn btn-sm" onclick="winServiceAction('mysql','remove')" data-i18n="btn_remove_svc">إلغاء الخدمة</button>
                     </div>
                 </div>
             </div>
@@ -321,11 +526,11 @@ pre.log-viewer {
 
         <div class="grid-2">
             <div class="card">
-                <h3>📂 مشاريع htdocs المكتشفة</h3>
+                <h3 data-i18n="projects_title">📂 مشاريع htdocs المكتشفة</h3>
                 <div id="projects-list" style="color:var(--text-muted);font-size:0.9rem;"></div>
             </div>
             <div class="card">
-                <h3>🔔 سجل الأحداث الذكي (Supervisor Events)</h3>
+                <h3 data-i18n="events_title">🔔 سجل الأحداث الذكي (Supervisor Events)</h3>
                 <div id="events-list" style="font-family:monospace;font-size:0.82rem;color:var(--text-muted);max-height:160px;overflow-y:auto;direction:ltr;text-align:left;"></div>
             </div>
         </div>
@@ -648,6 +853,328 @@ print_r($rows);
 
 <script>
 let remotePin = localStorage.getItem('axamp_pin') || '';
+let currentLang = localStorage.getItem('axamp_lang') || 'ar';
+
+const i18n = {
+    ar: {
+        page_title: "لوحة التحكم الذكية — AXAMP v2.0",
+        app_title: "لوحة التحكم الذكية",
+        sub_title: "Smart Local Server",
+        creator_title: "ابتكار وتطوير:",
+        creator_name: "عدنان سلطان حسن",
+        creator_side: "👨‍💻 مبتكر النظام:",
+        nav_dashboard: "⚡ لوحة التحكم والخدمات",
+        nav_security: "🛡️ الفحص الأمني والنصائح (SecGuard)",
+        nav_upgrader: "🚀 ترقية أكواد PHP (Code Upgrader)",
+        nav_packages: "📥 مدير الحزم الهجين (Binaries)",
+        nav_database: "🗄️ قواعد البيانات و phpMyAdmin",
+        nav_php: "🐘 إعدادات PHP والامتدادات",
+        nav_odbc: "🔌 مدير مصادر بيانات ODBC",
+        nav_migrate: "📦 الترقية من XAMPP قديم",
+        nav_vhosts: "🌐 النطاقات المحلية (.test)",
+        nav_logs: "📜 السجلات الحية (Live Logs)",
+        nav_remote: "🛡️ الوصول البعيد والإعدادات",
+        mode_label: "نمط تشغيل السيرفر الحالي:",
+        mode_dev: "تطوير (Dev)",
+        mode_prod: "إنتاجية (Prod)",
+        btn_start_all: "▶ تشغيل الكل",
+        btn_stop_all: "⏹ إيقاف الكل",
+        btn_htdocs: "📂 مجلد htdocs",
+        btn_localhost: "🌍 فتح localhost",
+        btn_sql: "⚡ SQL Studio",
+        btn_pma: "🐬 phpMyAdmin",
+        stat_ram: "ذاكرة الحاسبة الحية (RAM)",
+        stat_cpu: "استهلاك المعالج اللحظي (CPU)",
+        stat_conns: "الاتصالات النشطة الحالية",
+        stat_php_mem: "تخصيص PHP Memory",
+        apache_title: "🌐 خادم الويب Apache HTTP",
+        mysql_title: "🗄️ محرك قواعد البيانات MySQL / MariaDB",
+        active_port: "المنفذ النشط:",
+        pid_label: "معرف العملية (PID):",
+        auto_heal: "التعافي التلقائي:",
+        change_port_lbl: "تغيير البورت:",
+        btn_save_port: "💾 حفظ وإعادة تشغيل بالبورت الجديد",
+        btn_start: "▶ تشغيل مباشر",
+        btn_restart: "🔄 إعادة تشغيل",
+        btn_stop: "⏹ إيقاف",
+        win_svc_lbl: "خدمة نظام ويندوز:",
+        btn_install_svc: "تثبيت كخدمة",
+        btn_remove_svc: "إلغاء الخدمة",
+        projects_title: "📂 مشاريع htdocs المكتشفة",
+        events_title: "🔔 سجل الأحداث الذكي (Supervisor Events)",
+        telemetry_title: "📈 مراقبة السيرفر الحية والاتصالات الواردة (Live Server Monitor)",
+        live_pulse_lbl: "تحديث لحظي حي",
+        active_conns_lbl: "إجمالي الاتصالات النشطة:",
+        chart_cpu_title: "مخطط استهلاك المعالج (CPU Load)",
+        chart_ram_title: "مخطط استهلاك الذاكرة (RAM Usage)",
+        chart_conn_title: "مخطط تدفق الاتصالات (TCP Connections)",
+        conns_table_title: "🌐 جدول مراقبة الاتصالات الواردة المباشرة للسيرفر",
+        th_proto: "البروتوكول",
+        th_remote_ip: "عنوان العميل المتصل (Client IP)",
+        th_remote_port: "المنفذ البعيد",
+        th_service: "الخدمة المستهدفة",
+        th_local_port: "المنفذ المحلي",
+        th_state: "حالة الاتصال (State)",
+        no_conns: "لا توجد اتصالات واردة نشطة حالياً — خوادم Apache و MySQL بانتظار الطلبات.",
+        status_running: "يعمل بنجاح",
+        status_stopped: "متوقف",
+        status_missing: "بانتظار ملفات bin/",
+        win_svc_installed_run: "مثبتة وتعمل (Running)",
+        win_svc_installed_stop: "مثبتة ومتوقفة",
+        win_svc_not_installed: "غير مثبتة",
+        pass_txt: "آمن (PASS)",
+        alert_txt: "تنبيه"
+    },
+    en: {
+        page_title: "Smart Control Panel — AXAMP v2.0",
+        app_title: "Smart Control Panel",
+        sub_title: "Smart Local Server",
+        creator_title: "Innovation & Architecture:",
+        creator_name: "Adnan Sultan Hassan",
+        creator_side: "👨‍💻 Creator & Architect:",
+        nav_dashboard: "⚡ Dashboard & Services",
+        nav_security: "🛡️ Security Auditor (SecGuard)",
+        nav_upgrader: "🚀 PHP Code Upgrader",
+        nav_packages: "📥 Hybrid Binaries Manager",
+        nav_database: "🗄️ Databases & phpMyAdmin",
+        nav_php: "🐘 PHP Settings & Extensions",
+        nav_odbc: "🔌 ODBC Data Sources",
+        nav_migrate: "📦 Migrate from Legacy XAMPP",
+        nav_vhosts: "🌐 Local Virtual Hosts (.test)",
+        nav_logs: "📜 Live Logs",
+        nav_remote: "🛡️ Remote Access & Settings",
+        mode_label: "Current Server Mode:",
+        mode_dev: "Development (Dev)",
+        mode_prod: "Production (Prod)",
+        btn_start_all: "▶ Start All",
+        btn_stop_all: "⏹ Stop All",
+        btn_htdocs: "📂 htdocs Folder",
+        btn_localhost: "🌍 Open localhost",
+        btn_sql: "⚡ SQL Studio",
+        btn_pma: "🐬 phpMyAdmin",
+        stat_ram: "Live System Memory (RAM)",
+        stat_cpu: "Real-Time CPU Load",
+        stat_conns: "Active Concurrent Connections",
+        stat_php_mem: "PHP Memory Allocation",
+        apache_title: "🌐 Apache HTTP Web Server",
+        mysql_title: "🗄️ MySQL / MariaDB Database Engine",
+        active_port: "Active Port:",
+        pid_label: "Process ID (PID):",
+        auto_heal: "Auto-Heals:",
+        change_port_lbl: "Change Port:",
+        btn_save_port: "💾 Save & Restart on New Port",
+        btn_start: "▶ Start",
+        btn_restart: "🔄 Restart",
+        btn_stop: "⏹ Stop",
+        win_svc_lbl: "Windows Service:",
+        btn_install_svc: "Install Service",
+        btn_remove_svc: "Remove Service",
+        projects_title: "📂 Discovered htdocs Projects",
+        events_title: "🔔 Supervisor Intelligent Events",
+        telemetry_title: "📈 Live Server Telemetry & Incoming Connections",
+        live_pulse_lbl: "Live Telemetry",
+        active_conns_lbl: "Total Active Connections:",
+        chart_cpu_title: "Real-Time CPU Load (%)",
+        chart_ram_title: "Real-Time RAM Usage (%)",
+        chart_conn_title: "TCP Connections Flow",
+        conns_table_title: "🌐 Real-Time Incoming Connections Inspector",
+        th_proto: "Protocol",
+        th_remote_ip: "Client Remote IP",
+        th_remote_port: "Remote Port",
+        th_service: "Target Service",
+        th_local_port: "Local Port",
+        th_state: "Socket State",
+        no_conns: "No active incoming connections — Apache and MySQL are listening for requests.",
+        status_running: "Running",
+        status_stopped: "Stopped",
+        status_missing: "Awaiting bin/",
+        win_svc_installed_run: "Installed & Running",
+        win_svc_installed_stop: "Installed (Stopped)",
+        win_svc_not_installed: "Not Installed",
+        pass_txt: "Secure (PASS)",
+        alert_txt: "Notice"
+    }
+};
+
+function switchLanguage(lang) {
+    currentLang = lang;
+    localStorage.setItem('axamp_lang', lang);
+
+    document.documentElement.lang = lang;
+    document.documentElement.dir = (lang === 'ar' ? 'rtl' : 'ltr');
+
+    const btnAr = document.getElementById('lang-btn-ar');
+    const btnEn = document.getElementById('lang-btn-en');
+    if (btnAr && btnEn) {
+        if (lang === 'ar') {
+            btnAr.classList.add('active');
+            btnEn.classList.remove('active');
+        } else {
+            btnEn.classList.add('active');
+            btnAr.classList.remove('active');
+        }
+    }
+
+    const dict = i18n[lang] || i18n['ar'];
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (dict[key]) {
+            el.textContent = dict[key];
+        }
+    });
+
+    if (window.lastStateData) {
+        if (window.lastStateData.services) {
+            renderService('apache', window.lastStateData.services.apache);
+            renderService('mysql', window.lastStateData.services.mysql);
+        }
+        if (window.lastStateData.security) {
+            renderSecurity(window.lastStateData.security);
+        }
+        if (window.lastStateData.live_metrics) {
+            renderLiveMetrics(window.lastStateData.live_metrics, window.lastStateData.hardware);
+        }
+    }
+}
+
+function renderSvgChart(lineId, areaId, values, maxVal = 100) {
+    if (!values || !values.length) return;
+    const w = 300;
+    const h = 80;
+    const padTop = 6;
+    const padBottom = 6;
+    const chartH = h - padTop - padBottom;
+    const effMax = Math.max(maxVal, 1);
+
+    const step = w / Math.max(values.length - 1, 1);
+    const points = values.map((v, i) => {
+        const norm = Math.min(Math.max(v / effMax, 0), 1);
+        const x = i * step;
+        const y = h - padBottom - (norm * chartH);
+        return { x, y };
+    });
+
+    let lineD = `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
+    for (let i = 1; i < points.length; i++) {
+        const prev = points[i - 1];
+        const curr = points[i];
+        const cp1x = prev.x + (curr.x - prev.x) / 2;
+        const cp2x = cp1x;
+        lineD += ` C ${cp1x.toFixed(1)} ${prev.y.toFixed(1)}, ${cp2x.toFixed(1)} ${curr.y.toFixed(1)}, ${curr.x.toFixed(1)} ${curr.y.toFixed(1)}`;
+    }
+
+    const areaD = `${lineD} L ${points[points.length - 1].x.toFixed(1)} ${h} L 0 ${h} Z`;
+
+    const lineEl = document.getElementById(lineId);
+    const areaEl = document.getElementById(areaId);
+    if (lineEl) lineEl.setAttribute('d', lineD);
+    if (areaEl) areaEl.setAttribute('d', areaD);
+}
+
+function renderLiveMetrics(metrics, hw) {
+    if (!metrics) return;
+
+    // CPU
+    const cpuPct = metrics.cpu_percent || 0;
+    const cpuLoadEl = document.getElementById('hw-cpu-load');
+    if (cpuLoadEl) cpuLoadEl.textContent = cpuPct + '%';
+    const cpuBarEl = document.getElementById('cpu-load-bar');
+    if (cpuBarEl) cpuBarEl.style.width = Math.min(cpuPct, 100) + '%';
+    const cpuValEl = document.getElementById('chart-cpu-val');
+    if (cpuValEl) cpuValEl.textContent = cpuPct + '%';
+    const cpuSubEl = document.getElementById('chart-cpu-sub');
+    if (cpuSubEl) {
+        cpuSubEl.textContent = currentLang === 'en'
+            ? `${hw ? hw.cpu_cores : ''} Cores (${cpuPct}% Active)`
+            : `${hw ? hw.cpu_cores : ''} أنوية (${cpuPct}% نشط)`;
+    }
+    const cpuMetaEl = document.getElementById('hw-cpu-meta');
+    if (cpuMetaEl && hw) {
+        cpuMetaEl.textContent = `${hw.cpu_cores} ${currentLang === 'en' ? 'Cores' : 'أنوية'} • ${hw.arch}`;
+    }
+
+    // RAM
+    const ramLoad = metrics.memory_load_percent || 0;
+    const usedMB = metrics.used_ram_mb || 0;
+    const totGB = ((metrics.total_ram_mb || 0) / 1024).toFixed(1);
+    const usedGB = (usedMB / 1024).toFixed(1);
+    const ramEl = document.getElementById('hw-ram');
+    if (ramEl) ramEl.textContent = `${usedGB} / ${totGB} GB (${ramLoad}%)`;
+    const ramBarEl = document.getElementById('ram-bar');
+    if (ramBarEl) ramBarEl.style.width = Math.min(ramLoad, 100) + '%';
+    const ramValEl = document.getElementById('chart-ram-val');
+    if (ramValEl) ramValEl.textContent = ramLoad + '%';
+    const ramSubEl = document.getElementById('chart-ram-sub');
+    if (ramSubEl) {
+        ramSubEl.textContent = currentLang === 'en'
+            ? `${usedMB.toLocaleString()} MB Used`
+            : `${usedMB.toLocaleString()} ميغابايت مستخدم`;
+    }
+
+    // Connections
+    const totConns = metrics.total_connections || 0;
+    const actConnsEl = document.getElementById('hw-active-conns');
+    if (actConnsEl) actConnsEl.textContent = totConns;
+    const totBadgeEl = document.getElementById('live-total-conns-badge');
+    if (totBadgeEl) totBadgeEl.textContent = totConns;
+    const connsBarEl = document.getElementById('conns-bar');
+    if (connsBarEl) connsBarEl.style.width = Math.min(totConns * 10, 100) + '%';
+    const chartConnValEl = document.getElementById('chart-conn-val');
+    if (chartConnValEl) chartConnValEl.textContent = totConns;
+    const connSubEl = document.getElementById('chart-conn-sub');
+    if (connSubEl) {
+        connSubEl.textContent = currentLang === 'en'
+            ? `${totConns} Active Sockets`
+            : `${totConns} اتصالات نشطة`;
+    }
+
+    // Badges per service
+    const apCountEl = document.getElementById('conns-ap-count');
+    if (apCountEl) apCountEl.textContent = metrics.apache_connections || 0;
+    const myCountEl = document.getElementById('conns-my-count');
+    if (myCountEl) myCountEl.textContent = metrics.mysql_connections || 0;
+    const ctCountEl = document.getElementById('conns-ct-count');
+    if (ctCountEl) ctCountEl.textContent = metrics.control_connections || 0;
+
+    // SVG Charts
+    renderSvgChart('svg-cpu-line', 'svg-cpu-area', metrics.history_cpu || [], 100);
+    renderSvgChart('svg-ram-line', 'svg-ram-area', metrics.history_ram || [], 100);
+    const maxConnInHist = Math.max(5, ...((metrics.history_conns) || [5]));
+    renderSvgChart('svg-conn-line', 'svg-conn-area', metrics.history_conns || [], maxConnInHist);
+
+    // Live Connections Table
+    const tbody = document.getElementById('live-conns-table-body');
+    if (tbody) {
+        const conns = metrics.active_connections || [];
+        if (conns.length === 0) {
+            const noConnsMsg = currentLang === 'en'
+                ? 'No active incoming connections — Apache and MySQL are listening for requests.'
+                : 'لا توجد اتصالات واردة نشطة حالياً — خوادم Apache و MySQL بانتظار الطلبات.';
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:18px;">${noConnsMsg}</td></tr>`;
+        } else {
+            tbody.innerHTML = conns.map(c => {
+                const isLocal = c.remote_ip === '127.0.0.1' || c.remote_ip === '::1' || c.remote_ip === 'localhost';
+                let stateBadge = 'badge-running';
+                if (c.state === 'TIME_WAIT' || c.state === 'CLOSE_WAIT') stateBadge = 'badge-stopped';
+                else if (c.state === 'SYN_SENT' || c.state === 'LAST_ACK') stateBadge = 'badge-missing';
+
+                return `
+                <tr>
+                    <td><code>${c.proto}</code></td>
+                    <td>
+                        <code style="font-size:0.88rem;color:var(--text-main);">${c.remote_ip}</code>
+                        ${isLocal ? '<span class="badge" style="background:rgba(56,189,248,0.15);color:var(--accent);margin-right:6px;font-size:0.7rem;">Local</span>' : '<span class="badge" style="background:rgba(34,197,94,0.15);color:var(--success);margin-right:6px;font-size:0.7rem;">Client</span>'}
+                    </td>
+                    <td><code>${c.remote_port || '-'}</code></td>
+                    <td><strong style="color:var(--accent);">${c.service}</strong></td>
+                    <td><code style="color:var(--success);">${c.local_port}</code></td>
+                    <td><span class="badge ${stateBadge}">${c.state}</span></td>
+                </tr>
+                `;
+            }).join('');
+        }
+    }
+}
 
 async function api(url, options = {}) {
     options.headers = options.headers || {};
@@ -678,12 +1205,16 @@ async function refreshState() {
         const data = await api('/api/state');
         if (!data || !data.config) return;
 
-        document.getElementById('root-path-label').textContent = 'المسار المحمول النشط: ' + data.config.root_dir;
-        document.getElementById('hw-ram').textContent = (data.hardware.total_ram_mb / 1024).toFixed(1) + ' GB (' + data.hardware.memory_load_percent + '% مستخدم)';
-        document.getElementById('ram-bar').style.width = data.hardware.memory_load_percent + '%';
-        document.getElementById('hw-cpu').textContent = data.hardware.cpu_cores + ' أنوية (' + data.hardware.arch + ')';
+        window.lastStateData = data;
+
+        const pathPrefix = currentLang === 'en' ? 'Active Portable Root: ' : 'المسار المحمول النشط: ';
+        document.getElementById('root-path-label').textContent = pathPrefix + data.config.root_dir;
         document.getElementById('hw-php-mem').textContent = data.hardware.recommended_php_memory;
-        document.getElementById('hw-innodb').textContent = data.hardware.recommended_innodb_size;
+
+        // Render Live Server Metrics & Charts
+        if (data.live_metrics) {
+            renderLiveMetrics(data.live_metrics, data.hardware);
+        }
 
         // Mode Pills
         const isDev = data.config.mode === 'development';
@@ -707,14 +1238,17 @@ async function refreshState() {
         // Projects
         const projEl = document.getElementById('projects-list');
         if (data.projects && data.projects.length) {
+            const openTxt = currentLang === 'en' ? 'Open Project ↗' : 'فتح المشروع ↗';
             projEl.innerHTML = data.projects.map(p =>
                 `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
                     <strong>📁 ${p}</strong>
-                    <a href="http://localhost:${data.config.apache_port}/${p}" target="_blank" style="color:var(--accent);text-decoration:none;">فتح المشروع ↗</a>
+                    <a href="http://localhost:${data.config.apache_port}/${p}" target="_blank" style="color:var(--accent);text-decoration:none;">${openTxt}</a>
                 </div>`
             ).join('');
         } else {
-            projEl.innerHTML = 'لا توجد مجلدات فرعية بعد داخل <code>htdocs/</code> (الصفحة الترحيبية جاهزة).';
+            projEl.innerHTML = currentLang === 'en'
+                ? 'No sub-projects found inside <code>htdocs/</code> yet (welcome page is active).'
+                : 'لا توجد مجلدات فرعية بعد داخل <code>htdocs/</code> (الصفحة الترحيبية جاهزة).';
         }
 
         // Events
@@ -722,14 +1256,15 @@ async function refreshState() {
 
         // Databases
         const dbBody = document.getElementById('db-table-body');
+        const bkBtnTxt = currentLang === 'en' ? '💾 Backup .zip' : '💾 نسخ احتياطي .zip';
         dbBody.innerHTML = (data.databases || []).map(d => `
             <tr>
                 <td><strong>🗄️ ${d.name}</strong></td>
                 <td>${d.size_mb.toFixed(2)} MB</td>
                 <td>${d.file_count}</td>
-                <td><button class="btn btn-sm" onclick="backupDB('${d.name}')">💾 نسخ احتياطي .zip</button></td>
+                <td><button class="btn btn-sm" onclick="backupDB('${d.name}')">${bkBtnTxt}</button></td>
             </tr>
-        `).join('') || '<tr><td colspan="4">لا توجد قواعد بيانات بعد في مجلد data/</td></tr>';
+        `).join('') || `<tr><td colspan="4">${currentLang === 'en' ? 'No databases found in data/ directory yet.' : 'لا توجد قواعد بيانات بعد في مجلد data/'}</td></tr>`;
 
         // Backups list
         const bkBody = document.getElementById('backups-table-body');
@@ -740,7 +1275,7 @@ async function refreshState() {
                     <td>${b.size_kb.toFixed(1)} KB</td>
                     <td>${b.created_at}</td>
                 </tr>
-            `).join('') || '<tr><td colspan="3">لا توجد نسخ احتياطية محفوظة بعد.</td></tr>';
+            `).join('') || `<tr><td colspan="3">${currentLang === 'en' ? 'No backups archived yet.' : 'لا توجد نسخ احتياطية محفوظة بعد.'}</td></tr>`;
         }
 
         // PHP Extensions
@@ -754,13 +1289,14 @@ async function refreshState() {
 
         // VirtualHosts
         const vhBody = document.getElementById('vhosts-table');
+        const delTxt = currentLang === 'en' ? 'Delete' : 'حذف';
         vhBody.innerHTML = (data.config.virtual_hosts || []).map(v => `
             <tr>
                 <td><a href="http://${v.domain}:${data.config.apache_port}" target="_blank" style="color:var(--accent)">http://${v.domain}</a></td>
                 <td><code>${v.document_root}</code></td>
-                <td><button class="btn btn-danger btn-sm" onclick="removeVHost('${v.domain}')">حذف</button></td>
+                <td><button class="btn btn-danger btn-sm" onclick="removeVHost('${v.domain}')">${delTxt}</button></td>
             </tr>
-        `).join('') || '<tr><td colspan="3">لا توجد نطاقات مخصصة بعد.</td></tr>';
+        `).join('') || `<tr><td colspan="3">${currentLang === 'en' ? 'No virtual hosts configured yet.' : 'لا توجد نطاقات مخصصة بعد.'}</td></tr>`;
 
         // Settings & Remote
         document.getElementById('remote-pin').textContent = data.config.remote_pin;
@@ -789,25 +1325,26 @@ function renderService(key, st) {
     document.getElementById(key + '-restarts').textContent = st.restarts || 0;
     document.getElementById(key + '-err').textContent = st.last_error || '';
 
+    const dict = i18n[currentLang] || i18n['ar'];
     const winSvcEl = document.getElementById(key + '-winsvc');
     if (st.win_service_installed) {
-        winSvcEl.textContent = st.win_service_running ? 'مثبتة وتعمل (Running)' : 'مثبتة ومتوقفة';
+        winSvcEl.textContent = st.win_service_running ? dict.win_svc_installed_run : dict.win_svc_installed_stop;
         winSvcEl.style.color = 'var(--success)';
     } else {
-        winSvcEl.textContent = 'غير مثبتة';
+        winSvcEl.textContent = dict.win_svc_not_installed;
         winSvcEl.style.color = 'var(--text-muted)';
     }
 
     const badge = document.getElementById(key + '-badge');
     if (st.state === 'running') {
         badge.className = 'badge badge-running';
-        badge.textContent = 'يعمل بنجاح';
+        badge.textContent = dict.status_running;
     } else if (st.state === 'binary_missing') {
         badge.className = 'badge badge-missing';
-        badge.textContent = 'بانتظار ملفات bin/' + key;
+        badge.textContent = dict.status_missing + key;
     } else {
         badge.className = 'badge badge-stopped';
-        badge.textContent = 'متوقف';
+        badge.textContent = dict.status_stopped;
     }
 }
 
@@ -1231,8 +1768,9 @@ async function regeneratePIN() {
     refreshState();
 }
 
+switchLanguage(currentLang);
 refreshState();
-setInterval(refreshState, 3000);
+setInterval(refreshState, 2000);
 </script>
 </body>
 </html>

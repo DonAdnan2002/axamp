@@ -7,22 +7,24 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
+	"time"
 	"unsafe"
 )
 
 type HardwareProfile struct {
-	OS                    string `json:"os"`
-	Arch                  string `json:"arch"`
-	CPUCores              int    `json:"cpu_cores"`
-	TotalRAMMB            uint64 `json:"total_ram_mb"`
-	AvailRAMMB            uint64 `json:"avail_ram_mb"`
-	MemoryLoadPercent     uint32 `json:"memory_load_percent"`
-	VCRedistInstalled     bool   `json:"vc_redist_installed"`
-	RecommendedPHPMemory  string `json:"recommended_php_memory"`
-	RecommendedPostMax    string `json:"recommended_post_max"`
-	RecommendedInnoDBSize string `json:"recommended_innodb_size"`
-	RecommendedMaxConn    int    `json:"recommended_max_connections"`
+	OS                    string   `json:"os"`
+	Arch                  string   `json:"arch"`
+	CPUCores              int      `json:"cpu_cores"`
+	TotalRAMMB            uint64   `json:"total_ram_mb"`
+	AvailRAMMB            uint64   `json:"avail_ram_mb"`
+	MemoryLoadPercent     uint32   `json:"memory_load_percent"`
+	VCRedistInstalled     bool     `json:"vc_redist_installed"`
+	RecommendedPHPMemory  string   `json:"recommended_php_memory"`
+	RecommendedPostMax    string   `json:"recommended_post_max"`
+	RecommendedInnoDBSize string   `json:"recommended_innodb_size"`
+	RecommendedMaxConn    int      `json:"recommended_max_connections"`
 	LocalIPs              []string `json:"local_ips"`
 }
 
@@ -31,6 +33,32 @@ type PortScanResult struct {
 	Available   bool   `json:"available"`
 	ProcessID   string `json:"process_id,omitempty"`
 	ProcessName string `json:"process_name,omitempty"`
+}
+
+type LiveConnection struct {
+	Proto      string `json:"proto"`
+	LocalPort  string `json:"local_port"`
+	RemoteIP   string `json:"remote_ip"`
+	RemotePort string `json:"remote_port"`
+	State      string `json:"state"`
+	Service    string `json:"service"`
+}
+
+type LiveMetrics struct {
+	CPUPercent        int              `json:"cpu_percent"`
+	MemoryLoadPercent uint32           `json:"memory_load_percent"`
+	TotalRAMMB        uint64           `json:"total_ram_mb"`
+	AvailRAMMB        uint64           `json:"avail_ram_mb"`
+	UsedRAMMB         uint64           `json:"used_ram_mb"`
+	ApacheConnections int              `json:"apache_connections"`
+	MySQLConnections  int              `json:"mysql_connections"`
+	ControlConns      int              `json:"control_connections"`
+	TotalConnections  int              `json:"total_connections"`
+	ActiveConnections []LiveConnection `json:"active_connections"`
+	HistoryTimestamps []string         `json:"history_timestamps"`
+	HistoryCPU        []int            `json:"history_cpu"`
+	HistoryRAM        []int            `json:"history_ram"`
+	HistoryConns      []int            `json:"history_conns"`
 }
 
 type memoryStatusEx struct {
@@ -45,16 +73,36 @@ type memoryStatusEx struct {
 	ullAvailExtendedVirtual uint64
 }
 
+type fileTime struct {
+	dwLowDateTime  uint32
+	dwHighDateTime uint32
+}
+
+var (
+	kernel32Dll             = syscall.NewLazyDLL("kernel32.dll")
+	procGlobalMemoryStatusEx = kernel32Dll.NewProc("GlobalMemoryStatusEx")
+	procGetSystemTimes       = kernel32Dll.NewProc("GetSystemTimes")
+
+	metricsMu         sync.RWMutex
+	lastSampleTime    time.Time
+	lastIdleTime      uint64
+	lastKernelTime    uint64
+	lastUserTime      uint64
+	lastCPUPercent    int
+	cachedMetrics     *LiveMetrics
+	historyTimestamps []string
+	historyCPU        []int
+	historyRAM        []int
+	historyConns      []int
+)
+
 func InspectSystem() HardwareProfile {
 	var totalMB, availMB uint64 = 8192, 4096
 	var memLoad uint32 = 50
 
-	kernel32 := syscall.NewLazyDLL("kernel32.dll")
-	globalMemoryStatusEx := kernel32.NewProc("GlobalMemoryStatusEx")
-
 	var mem memoryStatusEx
 	mem.cbSize = uint32(unsafe.Sizeof(mem))
-	ret, _, _ := globalMemoryStatusEx.Call(uintptr(unsafe.Pointer(&mem)))
+	ret, _, _ := procGlobalMemoryStatusEx.Call(uintptr(unsafe.Pointer(&mem)))
 	if ret != 0 {
 		totalMB = mem.ullTotalPhys / (1024 * 1024)
 		availMB = mem.ullAvailPhys / (1024 * 1024)
@@ -237,3 +285,195 @@ func getProcessNameByPID(pid string) string {
 	}
 	return "Unknown"
 }
+
+func init() {
+	sampleCPU()
+	now := time.Now()
+	for i := 15; i >= 1; i-- {
+		t := now.Add(-time.Duration(i*2) * time.Second)
+		historyTimestamps = append(historyTimestamps, t.Format("15:04:05"))
+		historyCPU = append(historyCPU, 0)
+		historyRAM = append(historyRAM, 0)
+		historyConns = append(historyConns, 0)
+	}
+}
+
+func sampleCPU() int {
+	var idleFt, kernelFt, userFt fileTime
+	r, _, _ := procGetSystemTimes.Call(
+		uintptr(unsafe.Pointer(&idleFt)),
+		uintptr(unsafe.Pointer(&kernelFt)),
+		uintptr(unsafe.Pointer(&userFt)),
+	)
+	if r == 0 {
+		return lastCPUPercent
+	}
+
+	idle := uint64(idleFt.dwLowDateTime) | (uint64(idleFt.dwHighDateTime) << 32)
+	kernel := uint64(kernelFt.dwLowDateTime) | (uint64(kernelFt.dwHighDateTime) << 32)
+	user := uint64(userFt.dwLowDateTime) | (uint64(userFt.dwHighDateTime) << 32)
+
+	if lastIdleTime != 0 {
+		idleDelta := idle - lastIdleTime
+		kernelDelta := kernel - lastKernelTime
+		userDelta := user - lastUserTime
+		totalDelta := kernelDelta + userDelta
+		if totalDelta > 0 {
+			if totalDelta > idleDelta {
+				pct := int(((totalDelta - idleDelta) * 100) / totalDelta)
+				if pct > 100 {
+					pct = 100
+				}
+				lastCPUPercent = pct
+			} else {
+				lastCPUPercent = 0
+			}
+		}
+	}
+
+	lastIdleTime = idle
+	lastKernelTime = kernel
+	lastUserTime = user
+	return lastCPUPercent
+}
+
+func sampleMemory() (totalMB, availMB, usedMB uint64, loadPercent uint32) {
+	var mem memoryStatusEx
+	mem.cbSize = uint32(unsafe.Sizeof(mem))
+	ret, _, _ := procGlobalMemoryStatusEx.Call(uintptr(unsafe.Pointer(&mem)))
+	if ret != 0 {
+		totalMB = mem.ullTotalPhys / (1024 * 1024)
+		availMB = mem.ullAvailPhys / (1024 * 1024)
+		usedMB = totalMB - availMB
+		loadPercent = mem.dwMemoryLoad
+	} else {
+		totalMB, availMB, usedMB, loadPercent = 8192, 4096, 4096, 50
+	}
+	return
+}
+
+func scanActiveConnections(apachePort, mysqlPort, controlPort string) ([]LiveConnection, int, int, int, int) {
+	cmd := exec.Command("cmd", "/c", "netstat -n -p tcp")
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, 0, 0, 0, 0
+	}
+
+	ports := map[string]string{
+		apachePort:  "Apache HTTP",
+		"443":       "Apache HTTPS",
+		mysqlPort:   "MySQL / MariaDB",
+		controlPort: "AXAMP Dashboard",
+	}
+
+	var active []LiveConnection
+	var apacheCount, mysqlCount, controlCount, totalCount int
+
+	lines := strings.Split(string(out), "\n")
+	for _, line := range lines {
+		fields := strings.Fields(line)
+		if len(fields) < 4 {
+			continue
+		}
+		proto := fields[0]
+		local := fields[1]
+		remote := fields[2]
+		state := fields[3]
+
+		lastColon := strings.LastIndex(local, ":")
+		if lastColon == -1 {
+			continue
+		}
+		lport := local[lastColon+1:]
+
+		svc, ok := ports[lport]
+		if !ok {
+			continue
+		}
+
+		if state == "LISTENING" {
+			continue
+		}
+
+		totalCount++
+		if strings.HasPrefix(svc, "Apache") {
+			apacheCount++
+		} else if strings.HasPrefix(svc, "MySQL") {
+			mysqlCount++
+		} else if strings.HasPrefix(svc, "AXAMP") {
+			controlCount++
+		}
+
+		remoteIP := remote
+		remotePort := ""
+		rColon := strings.LastIndex(remote, ":")
+		if rColon != -1 {
+			remoteIP = remote[:rColon]
+			remotePort = remote[rColon+1:]
+		}
+
+		remoteIP = strings.TrimPrefix(remoteIP, "[")
+		remoteIP = strings.TrimSuffix(remoteIP, "]")
+
+		active = append(active, LiveConnection{
+			Proto:      proto,
+			LocalPort:  lport,
+			RemoteIP:   remoteIP,
+			RemotePort: remotePort,
+			State:      state,
+			Service:    svc,
+		})
+	}
+
+	return active, apacheCount, mysqlCount, controlCount, totalCount
+}
+
+func GetLiveMetrics(apachePort, mysqlPort, controlPort string) LiveMetrics {
+	metricsMu.Lock()
+	defer metricsMu.Unlock()
+
+	now := time.Now()
+	if cachedMetrics != nil && now.Sub(lastSampleTime) < 900*time.Millisecond {
+		return *cachedMetrics
+	}
+	lastSampleTime = now
+
+	cpu := sampleCPU()
+	totMB, avMB, usMB, memLoad := sampleMemory()
+	conns, apCount, myCount, ctCount, totConns := scanActiveConnections(apachePort, mysqlPort, controlPort)
+
+	ts := now.Format("15:04:05")
+	historyTimestamps = append(historyTimestamps, ts)
+	historyCPU = append(historyCPU, cpu)
+	historyRAM = append(historyRAM, int(memLoad))
+	historyConns = append(historyConns, totConns)
+
+	const maxHistory = 25
+	if len(historyTimestamps) > maxHistory {
+		historyTimestamps = historyTimestamps[len(historyTimestamps)-maxHistory:]
+		historyCPU = historyCPU[len(historyCPU)-maxHistory:]
+		historyRAM = historyRAM[len(historyRAM)-maxHistory:]
+		historyConns = historyConns[len(historyConns)-maxHistory:]
+	}
+
+	res := LiveMetrics{
+		CPUPercent:        cpu,
+		MemoryLoadPercent: memLoad,
+		TotalRAMMB:        totMB,
+		AvailRAMMB:        avMB,
+		UsedRAMMB:         usMB,
+		ApacheConnections: apCount,
+		MySQLConnections:  myCount,
+		ControlConns:      ctCount,
+		TotalConnections:  totConns,
+		ActiveConnections: conns,
+		HistoryTimestamps: append([]string(nil), historyTimestamps...),
+		HistoryCPU:        append([]int(nil), historyCPU...),
+		HistoryRAM:        append([]int(nil), historyRAM...),
+		HistoryConns:      append([]int(nil), historyConns...),
+	}
+	cachedMetrics = &res
+	return res
+}
+

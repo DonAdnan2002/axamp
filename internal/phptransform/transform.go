@@ -162,6 +162,7 @@ func Transform(src string, opts Options) Result {
 		toks = ruleDeprecated(toks, src, target, add)
 		toks = ruleRealCast(toks, add)
 		toks = ruleEStrictAndErrorReporting(toks, target, add)
+		toks = ruleLegacyMysqlConstants(toks, target, add)
 		toks = Lex(Render(toks))
 	}
 
@@ -181,6 +182,11 @@ func Transform(src string, opts Options) Result {
 	}
 	if opts.ConstructorPromotion && versionAtLeast(target, "8.0") {
 		toks = rel(rulePromotion(toks, add))
+	}
+	if versionAtLeast(target, "8.0") {
+		toks = rel(ruleFixConflictingPromotedProperties(toks, add))
+		toks = rel(rulePostvalueNumber(toks, add))
+		toks = rel(ruleLegacyCountNull(toks, add))
 	}
 	if opts.FixCurlyOffsets {
 		toks = rel(ruleCurlyOffsets(toks, add))
@@ -682,6 +688,165 @@ func findPropertyVar(toks []Token, visIdx, maxIdx int) int {
 	return -1
 }
 
+// ---------- fix conflicting promoted properties (PHP 8.0+) ----------
+// In PHP 8+, a constructor cannot promote a property that is already declared in the class
+// (Fatal error: Cannot redeclare Class::$prop). If a legacy file has both, or was previously
+// partially promoted, this rule strips the promotion from the constructor and ensures the assignment
+// statement exists in the constructor body.
+
+func ruleFixConflictingPromotedProperties(toks []Token, add func(string, int, Severity, string, ...interface{})) []Token {
+	classes := findClasses(toks)
+	var edits []edit
+
+	for _, cl := range classes {
+		declaredProps := map[string]bool{}
+		braceDepth := 0
+		parenDepth := 0
+		for j := cl.open + 1; j < cl.end; j++ {
+			if isOp(toks[j], "{") {
+				braceDepth++
+				continue
+			}
+			if isOp(toks[j], "}") {
+				braceDepth--
+				continue
+			}
+			if isOp(toks[j], "(") {
+				parenDepth++
+				continue
+			}
+			if isOp(toks[j], ")") {
+				parenDepth--
+				continue
+			}
+			if braceDepth != 0 || parenDepth != 0 {
+				continue
+			}
+
+			if toks[j].Type != TokIdent {
+				continue
+			}
+			vis := strings.ToLower(toks[j].Text)
+			if vis != "var" && vis != "public" && vis != "protected" && vis != "private" {
+				continue
+			}
+			nx := nextSig(toks, j)
+			if nx >= 0 && isKw(toks[nx], "function") {
+				continue
+			}
+			v := findPropertyVar(toks, j, cl.end)
+			if v >= 0 {
+				propName := strings.TrimPrefix(toks[v].Text, "$")
+				declaredProps[propName] = true
+			}
+		}
+
+		if len(declaredProps) == 0 {
+			continue
+		}
+
+		var ctorIdx = -1
+		for j := cl.open + 1; j < cl.end; j++ {
+			if !isKw(toks[j], "__construct") {
+				continue
+			}
+			px := prevSig(toks, j)
+			if px >= 0 && isKw(toks[px], "function") && px > cl.open {
+				ctorIdx = j
+				break
+			}
+		}
+		if ctorIdx < 0 {
+			continue
+		}
+
+		po := nextSig(toks, ctorIdx)
+		if po < 0 || !isOp(toks[po], "(") {
+			continue
+		}
+		pc := matchDelim(toks, po, "(", ")")
+		if pc < 0 {
+			continue
+		}
+		bo := nextSig(toks, pc)
+		if bo < 0 || !isOp(toks[bo], "{") {
+			continue
+		}
+		bc := matchDelim(toks, bo, "{", "}")
+		if bc < 0 || bc > cl.end {
+			continue
+		}
+
+		commas := topLevelCommas(toks, po, pc)
+		bounds := append([]int{po}, commas...)
+		bounds = append(bounds, pc)
+
+		var assignmentsToInsert []string
+
+		for bi := 0; bi+1 < len(bounds); bi++ {
+			start, end := bounds[bi] + 1, bounds[bi+1]
+			var visIdx = -1
+			var varIdx = -1
+			for k := start; k < end; k++ {
+				if toks[k].Type == TokWhitespace || toks[k].Type == TokComment {
+					continue
+				}
+				if toks[k].Type == TokIdent && visIdx < 0 {
+					w := strings.ToLower(toks[k].Text)
+					if w == "public" || w == "protected" || w == "private" || w == "readonly" {
+						visIdx = k
+						continue
+					}
+				}
+				if toks[k].Type == TokVariable && varIdx < 0 {
+					varIdx = k
+				}
+			}
+
+			if visIdx >= 0 && varIdx >= 0 {
+				paramName := strings.TrimPrefix(toks[varIdx].Text, "$")
+				if declaredProps[paramName] {
+					endVis := visIdx + 1
+					for endVis < varIdx && (toks[endVis].Type == TokWhitespace || toks[endVis].Type == TokComment) {
+						endVis++
+					}
+					edits = append(edits, edit{visIdx, endVis, ""})
+					add("conflict-property-promotion", toks[varIdx].Line, Fixed,
+						"Demoted conflicting promoted constructor parameter '$%s' in class %s (already declared in class body)",
+						paramName, cl.name)
+
+					hasAssign := false
+					for k := bo + 1; k < bc-2; k++ {
+						if toks[k].Type == TokVariable && toks[k].Text == "$this" {
+							arrow := nextSig(toks, k)
+							if arrow >= 0 && isOp(toks[arrow], "->") {
+								prop := nextSig(toks, arrow)
+								if prop >= 0 && toks[prop].Type == TokIdent && toks[prop].Text == paramName {
+									hasAssign = true
+									break
+								}
+							}
+						}
+					}
+					if !hasAssign {
+						assignmentsToInsert = append(assignmentsToInsert, fmt.Sprintf("$this->%s = $%s;", paramName, paramName))
+					}
+				}
+			}
+		}
+
+		if len(assignmentsToInsert) > 0 {
+			var sb strings.Builder
+			sb.WriteString("\r\n\t\t")
+			sb.WriteString(strings.Join(assignmentsToInsert, "\r\n\t\t"))
+			edits = append(edits, edit{bo + 1, bo + 1, sb.String()})
+		}
+	}
+
+	sortEdits(edits)
+	return applyEdits(toks, edits)
+}
+
 // ---------- $x =& new C(...) -> $x = new C(...) ----------
 //
 // Reference-assigning `new` was removed in PHP 7.0. Since PHP 5 objects are
@@ -990,6 +1155,134 @@ func ruleAllowDynamicProperties(toks []Token, add func(string, int, Severity, st
 			edits = append(edits, edit{insertIdx, insertIdx, "#[\\AllowDynamicProperties]\n"})
 			add("allow-dynamic-props", toks[insertIdx].Line, Fixed,
 				"Added #[\\AllowDynamicProperties] attribute to class %s (avoids PHP 8.2+ dynamic property deprecations)", cl.name)
+		}
+	}
+	sortEdits(edits)
+	return applyEdits(toks, edits)
+}
+
+// ---------- Legacy ext/mysql constants (removed in PHP 7.0) -> mysqli equivalents ----------
+// MYSQL_ASSOC -> MYSQLI_ASSOC, MYSQL_NUM -> MYSQLI_NUM, MYSQL_BOTH -> MYSQLI_BOTH
+
+func ruleLegacyMysqlConstants(toks []Token, target string, add func(string, int, Severity, string, ...interface{})) []Token {
+	if !versionAtLeast(target, "7.0") {
+		return toks
+	}
+	var edits []edit
+	for i := 0; i < len(toks); i++ {
+		if toks[i].Type != TokIdent {
+			continue
+		}
+		px := prevSig(toks, i)
+		if px >= 0 && (isOp(toks[px], "->") || isOp(toks[px], "::") || isOp(toks[px], "?->")) {
+			continue
+		}
+		var repl string
+		switch toks[i].Text {
+		case "MYSQL_ASSOC":
+			repl = "MYSQLI_ASSOC"
+		case "MYSQL_NUM":
+			repl = "MYSQLI_NUM"
+		case "MYSQL_BOTH":
+			repl = "MYSQLI_BOTH"
+		}
+		if repl != "" {
+			edits = append(edits, edit{i, i + 1, repl})
+			add("legacy-mysql-const", toks[i].Line, Fixed,
+				"Replaced removed ext/mysql constant %s with %s (PHP 7.0+)", toks[i].Text, repl)
+		}
+	}
+	sortEdits(edits)
+	return applyEdits(toks, edits)
+}
+
+// ---------- rulePostvalueNumber (PHP 8.0+) ----------
+// In PHP 8+, `0 + ""` throws TypeError (Unsupported operand types: int + string).
+// Modernizes `postvalue_number($key) { return 0 + postvalue($key); }` to be safe against non-numeric/empty strings.
+
+func rulePostvalueNumber(toks []Token, add func(string, int, Severity, string, ...interface{})) []Token {
+	var edits []edit
+	for i := 0; i < len(toks); i++ {
+		if !isKw(toks[i], "postvalue_number") {
+			continue
+		}
+		px := prevSig(toks, i)
+		if px < 0 || !isKw(toks[px], "function") {
+			continue
+		}
+		nx := nextSig(toks, i)
+		if nx < 0 || !isOp(toks[nx], "(") {
+			continue
+		}
+		pc := matchDelim(toks, nx, "(", ")")
+		if pc < 0 {
+			continue
+		}
+		bo := nextSig(toks, pc)
+		if bo < 0 || !isOp(toks[bo], "{") {
+			continue
+		}
+		bc := matchDelim(toks, bo, "{", "}")
+		if bc < 0 {
+			continue
+		}
+		hasZeroAdd := false
+		for k := bo + 1; k < bc-2; k++ {
+			if toks[k].Type == TokNumber && toks[k].Text == "0" {
+				plus := nextSig(toks, k)
+				if plus >= 0 && isOp(toks[plus], "+") {
+					pv := nextSig(toks, plus)
+					if pv >= 0 && isKw(toks[pv], "postvalue") {
+						hasZeroAdd = true
+						break
+					}
+				}
+			}
+		}
+		if hasZeroAdd {
+			bodyReplacement := "{\r\n\t$val = postvalue($key);\r\n\tif (is_numeric($val))\r\n\t\treturn 0 + $val;\r\n\treturn intval($val);\r\n}"
+			edits = append(edits, edit{bo, bc + 1, bodyReplacement})
+			add("postvalue-number-php8", toks[i].Line, Fixed,
+				"Modernized postvalue_number() body to prevent PHP 8 'Unsupported operand types: int + string' TypeError")
+		}
+	}
+	sortEdits(edits)
+	return applyEdits(toks, edits)
+}
+
+// ---------- ruleLegacyCountNull (PHP 8.0+) ----------
+// In PHP 8+, `count(null)` throws TypeError (Countable|array, null given).
+// In PHPRunner: `!count($this->menuNodes[$name])` is modernized to `empty($this->menuNodes[$name])`
+
+func ruleLegacyCountNull(toks []Token, add func(string, int, Severity, string, ...interface{})) []Token {
+	var edits []edit
+	for i := 0; i < len(toks); i++ {
+		if !isKw(toks[i], "count") {
+			continue
+		}
+		px := prevSig(toks, i)
+		if px < 0 || !isOp(toks[px], "!") {
+			continue
+		}
+		nx := nextSig(toks, i)
+		if nx < 0 || !isOp(toks[nx], "(") {
+			continue
+		}
+		close := matchDelim(toks, nx, "(", ")")
+		if close < 0 {
+			continue
+		}
+		isMenuNodes := false
+		for k := nx + 1; k < close; k++ {
+			if toks[k].Type == TokIdent && toks[k].Text == "menuNodes" {
+				isMenuNodes = true
+				break
+			}
+		}
+		if isMenuNodes {
+			edits = append(edits, edit{px, nx + 1, "empty("})
+			add("count-null-php8", toks[i].Line, Fixed,
+				"Modernized !count($this->menuNodes[...]) to empty(...) to prevent PHP 8 count(null) TypeError")
 		}
 	}
 	sortEdits(edits)

@@ -277,9 +277,15 @@ var deprecatedTable = []deprecatedFn{
 		note: "create_function() removed in PHP 8.0 — converted to an anonymous function",
 		fix:  fixCreateFunction},
 	{names: []string{"get_magic_quotes_gpc"}, since: "7.4",
-		note: "get_magic_quotes_gpc() removed in PHP 8.0 — always returned false since 5.4, replace with false"},
+		note: "get_magic_quotes_gpc() removed in PHP 8.0 — always returned false since 5.4, replaced with false",
+		fix: func(src string, toks []Token, open, close int) (string, bool) {
+			return "false", true
+		}},
 	{names: []string{"get_magic_quotes_runtime"}, since: "7.4",
-		note: "get_magic_quotes_runtime() removed in PHP 8.0 — replace with false"},
+		note: "get_magic_quotes_runtime() removed in PHP 8.0 — replaced with false",
+		fix: func(src string, toks []Token, open, close int) (string, bool) {
+			return "false", true
+		}},
 	{names: []string{"is_real"}, since: "7.4",
 		note: "is_real() removed in PHP 8.0 — converted to is_float()",
 		fix: func(src string, toks []Token, open, close int) (string, bool) {

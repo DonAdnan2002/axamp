@@ -19,12 +19,12 @@ func main() {
 
 	exePath, _ := os.Executable()
 	exeDir := filepath.Dir(exePath)
-	payloadZip := filepath.Join(exeDir, "AXAMP-v1.2.0-Portable.zip")
+	payloadZip := filepath.Join(exeDir, "AXAMP-v2.0.0-Portable.zip")
 	if _, err := os.Stat(payloadZip); os.IsNotExist(err) {
-		payloadZip = filepath.Join(exeDir, "AXAMP-v1.1.0-Portable.zip")
+		payloadZip = filepath.Join(exeDir, "AXAMP-v1.2.0-Portable.zip")
 	}
 	if _, err := os.Stat(payloadZip); os.IsNotExist(err) {
-		payloadZip = filepath.Join(exeDir, "AXAMP-v1.0.0-Portable.zip")
+		payloadZip = filepath.Join(exeDir, "AXAMP-v1.1.0-Portable.zip")
 	}
 
 	mux.HandleFunc("/logo.png", func(w http.ResponseWriter, r *http.Request) {
@@ -180,7 +180,7 @@ const installerHTML = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<title>معالج تثبيت AXAMP v1.2.0-stable</title>
+<title>معالج تثبيت AXAMP v2.0.0-stable</title>
 <style>
 body { margin:0; font-family:'Segoe UI',system-ui,sans-serif; background:#0b1120; color:#f8fafc; display:flex; align-items:center; justify-content:center; height:100vh; }
 .box { width:580px; background:#151f32; border:1px solid #26354d; border-radius:16px; padding:28px; box-shadow:0 20px 30px rgba(0,0,0,0.5); }
@@ -196,7 +196,7 @@ input[type="text"] { width:100%; padding:10px 12px; background:#0b1120; border:1
     <div class="hdr">
         <img src="/logo.png" onerror="this.style.display='none'">
         <div>
-            <h2 style="margin:0;color:#38bdf8;">معالج تثبيت AXAMP v1.2.0-stable</h2>
+            <h2 style="margin:0;color:#38bdf8;">معالج تثبيت AXAMP v2.0.0-stable</h2>
             <small style="color:#94a3b8;">ابتكار وتطوير: <strong>عدنان سلطان حسن</strong> (donadnan2002@gmail.com)</small>
         </div>
     </div>
