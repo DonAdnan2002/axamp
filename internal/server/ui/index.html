@@ -283,6 +283,7 @@ html[dir="ltr"] .mode-switch-box div {
             <strong style="color:var(--accent);">عدنان سلطان حسن</strong><br>
             <a href="mailto:donadnan2002@gmail.com" style="color:var(--text-main);text-decoration:none;">donadnan2002@gmail.com</a>
         </div>
+        <button class="btn btn-danger btn-sm" onclick="shutdownServer()" style="width:100%;margin-top:10px;justify-content:center;" data-i18n="btn_exit_app">🛑 إغلاق وإنهاء AXAMP</button>
     </div>
 </aside>
 
@@ -310,6 +311,7 @@ html[dir="ltr"] .mode-switch-box div {
             <button class="btn" onclick="quickOpen('localhost')" data-i18n="btn_localhost">🌍 فتح localhost</button>
             <button class="btn btn-primary" onclick="quickOpen('adminer')" data-i18n="btn_sql">⚡ SQL Studio</button>
             <button class="btn" onclick="quickOpen('phpmyadmin')" data-i18n="btn_pma">🐬 phpMyAdmin</button>
+            <button class="btn btn-danger" onclick="shutdownServer()" data-i18n="btn_exit_app">🛑 إغلاق وإنهاء AXAMP</button>
         </div>
     </div>
 
@@ -923,7 +925,8 @@ const i18n = {
         win_svc_installed_stop: "مثبتة ومتوقفة",
         win_svc_not_installed: "غير مثبتة",
         pass_txt: "آمن (PASS)",
-        alert_txt: "تنبيه"
+        alert_txt: "تنبيه",
+        btn_exit_app: "🛑 إغلاق وإنهاء AXAMP"
     },
     en: {
         page_title: "Smart Control Panel — AXAMP v2.0",
@@ -992,7 +995,8 @@ const i18n = {
         win_svc_installed_stop: "Installed (Stopped)",
         win_svc_not_installed: "Not Installed",
         pass_txt: "Secure (PASS)",
-        alert_txt: "Notice"
+        alert_txt: "Notice",
+        btn_exit_app: "🛑 Exit AXAMP Stack"
     }
 };
 
@@ -1766,6 +1770,31 @@ async function regeneratePIN() {
         body: JSON.stringify({ regenerate_pin: true })
     });
     refreshState();
+}
+
+async function shutdownServer() {
+    const msg = currentLang === 'en'
+        ? 'Are you sure you want to stop Apache & MySQL and shut down AXAMP completely?'
+        : 'هل أنت متأكد من إيقاف خوادم Apache و MySQL وإغلاق برنامج AXAMP نهائياً؟';
+    if (!confirm(msg)) return;
+
+    try {
+        await api('/api/shutdown', { method: 'POST' });
+    } catch (e) {}
+
+    const byeMsg = currentLang === 'en'
+        ? '🛑 All services stopped and AXAMP shut down successfully.<br>You can safely close this window now.'
+        : '🛑 تم إيقاف كافة الخدمات (Apache و MySQL) وإغلاق AXAMP بنجاح.<br>يمكنك إغلاق هذه النافذة بأمان الآن.';
+
+    document.body.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#0b1120;color:#f1f5f9;font-family:system-ui,sans-serif;text-align:center;padding:20px;">
+            <div style="font-size:3.5rem;margin-bottom:14px;">👋</div>
+            <h2 style="color:#38bdf8;margin:0 0 10px;font-size:1.6rem;">${currentLang === 'en' ? 'AXAMP Server Stopped' : 'تم إيقاف خادم AXAMP'}</h2>
+            <p style="color:#94a3b8;font-size:1.05rem;line-height:1.6;margin:0 0 24px;">${byeMsg}</p>
+            <button onclick="window.close()" class="btn btn-primary" style="padding:10px 24px;font-size:1rem;">${currentLang === 'en' ? 'Close Window' : 'إغلاق النافذة'}</button>
+        </div>
+    `;
+    setTimeout(() => { try { window.close(); } catch(e){} }, 1000);
 }
 
 switchLanguage(currentLang);

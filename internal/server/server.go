@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"axamp/internal/config"
 	"axamp/internal/dbmanager"
@@ -62,6 +63,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/upgrader", s.authMiddleware(s.handleUpgrader))
 	mux.HandleFunc("/api/settings", s.authMiddleware(s.handleSettings))
 	mux.HandleFunc("/api/quick-open", s.authMiddleware(s.handleQuickOpen))
+	mux.HandleFunc("/api/shutdown", s.authMiddleware(s.handleShutdown))
 
 	subUI, _ := fs.Sub(uiFS, "ui")
 	mux.Handle("/", http.FileServer(http.FS(subUI)))
@@ -703,3 +705,22 @@ func listPHPVersions(rootDir string) []string {
 	}
 	return versions
 }
+
+func (s *Server) handleShutdown(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"ok":      true,
+		"message": "Shutting down AXAMP and stopping all managed services...",
+	})
+
+	go func() {
+		time.Sleep(250 * time.Millisecond)
+		s.sup.StopAll()
+		os.Exit(0)
+	}()
+}
+

@@ -91,12 +91,19 @@ func main() {
 	// 6. Open Native-like App Window unless --minimized or --headless
 	if !*minimized && !*headless {
 		go func() {
-			time.Sleep(400 * time.Millisecond)
-			_ = winutil.OpenAppWindow(ctrlURL)
+			time.Sleep(300 * time.Millisecond)
+			cmd, err := winutil.OpenAppWindow(ctrlURL)
+			if err == nil && cmd != nil && cmd.Process != nil {
+				// When user closes the native app window ('X'), automatically shut down all services!
+				_ = cmd.Wait()
+				fmt.Println("\n[*] App window closed. Shutting down AXAMP managed services...")
+				sup.StopAll()
+				os.Exit(0)
+			}
 		}()
 	}
 
-	// 7. Graceful Shutdown Handling
+	// 7. Graceful Shutdown Handling (Signals / OS events)
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 	<-sigCh

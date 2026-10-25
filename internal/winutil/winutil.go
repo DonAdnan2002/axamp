@@ -39,19 +39,35 @@ func OpenBrowser(url string) error {
 	return cmd.Start()
 }
 
-func OpenAppWindow(url string) error {
+func OpenAppWindow(url string) (*exec.Cmd, error) {
 	// Attempt to open in sleek Edge App mode (native-like desktop window on Windows 10/11)
 	edgePaths := []string{
 		`C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`,
 		`C:\Program Files\Microsoft\Edge\Application\msedge.exe`,
 	}
+	profileDir := filepath.Join(os.TempDir(), "axamp_app_profile")
+	_ = os.MkdirAll(profileDir, 0755)
+
 	for _, ep := range edgePaths {
 		if _, err := os.Stat(ep); err == nil {
-			cmd := exec.Command(ep, "--app="+url, "--window-size=1220,820")
-			return cmd.Start()
+			cmd := exec.Command(ep,
+				"--app="+url,
+				"--user-data-dir="+profileDir,
+				"--window-size=1260,840",
+				"--no-first-run",
+				"--no-default-browser-check",
+			)
+			if err := cmd.Start(); err != nil {
+				return nil, err
+			}
+			return cmd, nil
 		}
 	}
-	return OpenBrowser(url)
+	cmd := exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+	return cmd, nil
 }
 
 func SyncLocalHostsDomain(domain string, add bool) error {
