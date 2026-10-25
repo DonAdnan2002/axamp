@@ -482,3 +482,84 @@ function f(string &$x = null) { }`
 		t.Errorf("unexpected ? inserted:\n%s", res.Code)
 	}
 }
+
+func TestPHPRunnerTLayoutRedeclareFix(t *testing.T) {
+	// Simulated PHPRunner TLayout class with default values and PHP 4 constructor
+	src := `<?php
+class TLayout {
+    var $name = "";
+    var $style = "default";
+    var $skin = "";
+    function TLayout($name, $style, $skin) {
+        $this->name = $name;
+        $this->style = $style;
+        $this->skin = $skin;
+    }
+}`
+	opts := allOn()
+	opts.ConstructorPromotion = false // default for upgrades
+	res := run(t, src, opts)
+
+	if strings.Contains(res.Code, "public $name,") || strings.Contains(res.Code, "__construct(public $name") {
+		t.Errorf("Constructor promotion should NOT happen for legacy class:\n%s", res.Code)
+	}
+	if !strings.Contains(res.Code, "function __construct($name, $style, $skin)") {
+		t.Errorf("PHP 4 constructor should be renamed to __construct:\n%s", res.Code)
+	}
+	if !strings.Contains(res.Code, "public $name = \"\";") {
+		t.Errorf("var should be converted to public:\n%s", res.Code)
+	}
+}
+
+func TestPHPRunnerTLayoutWithPromotionEnabledSafe(t *testing.T) {
+	// Even if someone explicitly turns on ConstructorPromotion, it MUST NOT promote
+	// properties that have default values to avoid Fatal Error: Cannot redeclare
+	src := `<?php
+class TLayout {
+    public $name = "";
+    public function __construct($name) {
+        $this->name = $name;
+    }
+}`
+	opts := allOn()
+	opts.ConstructorPromotion = true
+	res := run(t, src, opts)
+
+	if strings.Contains(res.Code, "__construct(public $name)") {
+		t.Errorf("Must NOT promote when property has default value, causes Fatal error:\n%s", res.Code)
+	}
+}
+
+func TestLegacyErrorReportingAndEStrict(t *testing.T) {
+	src := `<?php
+error_reporting(E_ALL ^ E_NOTICE ^ E_DEPRECATED ^ E_STRICT);
+$mask = E_ALL & ~E_STRICT;
+`
+	opts := allOn()
+	opts.TargetVersion = "8.5"
+	res := run(t, src, opts)
+
+	if strings.Contains(res.Code, "E_STRICT") {
+		t.Errorf("E_STRICT should be removed/replaced in PHP 8.4+:\n%s", res.Code)
+	}
+	if !strings.Contains(res.Code, "error_reporting(E_ALL & ~E_NOTICE & ~E_WARNING & ~E_DEPRECATED);") {
+		t.Errorf("error_reporting should be modernized to suppress PHP 8 undefined variable warnings:\n%s", res.Code)
+	}
+}
+
+func TestAllowDynamicProperties(t *testing.T) {
+	src := `<?php
+class LegacyRunnerPage {
+    public $id;
+}
+`
+	opts := allOn()
+	opts.TargetVersion = "8.5"
+	opts.AllowDynamicProperties = true
+	res := run(t, src, opts)
+
+	if !strings.Contains(res.Code, "#[\\AllowDynamicProperties]\nclass LegacyRunnerPage") {
+		t.Errorf("Expected #[\\AllowDynamicProperties] attribute:\n%s", res.Code)
+	}
+}
+

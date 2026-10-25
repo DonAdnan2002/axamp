@@ -122,9 +122,16 @@ func makeEregFix(isReplace, ci bool) fnFix {
 		if len(commas) < need {
 			return "", false
 		}
-		_, pat, ok := singleStringArg(toks, open+1, commas[0])
+		patIdx, pat, ok := singleStringArg(toks, open+1, commas[0])
 		if !ok || pat == "" {
 			return "", false
+		}
+		rest := argSegment(src, toks, commas[0]+1, close)
+		if rest == "" {
+			return "", false
+		}
+		if isReplace && !ci && !hasRegexMeta(pat) {
+			return "str_replace(" + toks[patIdx].Text + ", " + rest + ")", true
 		}
 		d := pickDelimiter(pat)
 		if d == "" {
@@ -138,11 +145,8 @@ func makeEregFix(isReplace, ci bool) fnFix {
 		if isReplace {
 			target = "preg_replace"
 		}
-		rest := argSegment(src, toks, commas[0]+1, close)
-		if rest == "" {
-			return "", false
-		}
-		return target + "('" + d + pat + d + mod + "', " + rest + ")", true
+		patEscaped := strings.ReplaceAll(pat, "'", `\'`)
+		return target + "('" + d + patEscaped + d + mod + "', " + rest + ")", true
 	}
 }
 

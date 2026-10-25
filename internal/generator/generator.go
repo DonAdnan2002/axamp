@@ -268,7 +268,7 @@ func GeneratePhpIni(cfg *config.AppConfig, hw profiler.HardwareProfile) error {
 
 	displayErrors := "Off"
 	displayStartup := "Off"
-	errorReporting := "E_ALL & ~E_DEPRECATED & ~E_STRICT"
+	errorReporting := "E_ALL & ~E_DEPRECATED"
 	opcacheEnable := "1"
 	opcacheRevalidate := "60"
 	exposePhp := "Off"

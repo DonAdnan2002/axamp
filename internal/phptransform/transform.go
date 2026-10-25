@@ -16,6 +16,7 @@ type Options struct {
 	FixPhp4Constructors    bool // function ClassName() -> __construct
 	ConstructorPromotion   bool // PHP 8 promoted ctor properties
 	FixDeprecatedFunctions bool // auto-fix mechanical calls + annotate the rest
+	AllowDynamicProperties bool // add #[\AllowDynamicProperties] for PHP 8.2+
 }
 
 // Severity of a reported change.
@@ -160,6 +161,7 @@ func Transform(src string, opts Options) Result {
 	if opts.FixDeprecatedFunctions {
 		toks = ruleDeprecated(toks, src, target, add)
 		toks = ruleRealCast(toks, add)
+		toks = ruleEStrictAndErrorReporting(toks, target, add)
 		toks = Lex(Render(toks))
 	}
 
@@ -170,6 +172,9 @@ func Transform(src string, opts Options) Result {
 	}
 	if opts.FixPhp4Constructors {
 		toks = rel(rulePhp4Constructors(toks, add))
+	}
+	if opts.AllowDynamicProperties && versionAtLeast(target, "8.2") {
+		toks = rel(ruleAllowDynamicProperties(toks, add))
 	}
 	if opts.FixDeprecatedFunctions && versionAtLeast(target, "8.4") {
 		toks = rel(ruleImplicitNullable(toks, add))
@@ -588,6 +593,39 @@ func promoteClass(toks []Token, cl classRange) ([]edit, bool) {
 		}
 	}
 
+	// In PHP 8, constructor property promotion cannot co-exist with a property declaration
+	// of the same name in the class body. Every promoted property MUST have a cleanly drop-able
+	// declaration (public/protected/private $prop;) with NO default value.
+	// If any promoted property has a default value or cannot be safely dropped, abort promotion
+	// to prevent PHP 8 "Fatal error: Cannot redeclare Class::$prop".
+	for _, p := range params {
+		propName := strings.TrimPrefix(p.name, "$")
+		canDrop := false
+		for j := cl.open + 1; j < cl.end; j++ {
+			if toks[j].Type != TokIdent {
+				continue
+			}
+			vis := strings.ToLower(toks[j].Text)
+			if vis != "public" && vis != "protected" && vis != "private" {
+				continue
+			}
+			v := findPropertyVar(toks, j, cl.end)
+			if v < 0 {
+				continue
+			}
+			if strings.TrimPrefix(toks[v].Text, "$") == propName {
+				sc := nextSig(toks, v)
+				if sc >= 0 && isOp(toks[sc], ";") {
+					canDrop = true
+					break
+				}
+			}
+		}
+		if !canDrop {
+			return nil, false
+		}
+	}
+
 	var edits []edit
 	promotedNames := map[string]bool{}
 	for _, p := range params {
@@ -612,11 +650,8 @@ func promoteClass(toks []Token, cl classRange) ([]edit, bool) {
 		if vis != "public" && vis != "protected" && vis != "private" {
 			continue
 		}
-		v := nextSig(toks, j)
-		if v < 0 || toks[v].Type != TokVariable {
-			continue // public function ... etc.
-		}
-		if !promotedNames[strings.TrimPrefix(toks[v].Text, "$")] {
+		v := findPropertyVar(toks, j, cl.end)
+		if v < 0 || !promotedNames[strings.TrimPrefix(toks[v].Text, "$")] {
 			continue
 		}
 		sc := nextSig(toks, v)
@@ -630,6 +665,21 @@ func promoteClass(toks []Token, cl classRange) ([]edit, bool) {
 		edits = append(edits, edit{j, end, ""})
 	}
 	return edits, true
+}
+
+func findPropertyVar(toks []Token, visIdx, maxIdx int) int {
+	for k := visIdx + 1; k < maxIdx; k++ {
+		if toks[k].Type == TokWhitespace || toks[k].Type == TokComment {
+			continue
+		}
+		if toks[k].Type == TokVariable {
+			return k
+		}
+		if isOp(toks[k], ";") || isOp(toks[k], "{") || isOp(toks[k], "}") || isOp(toks[k], "(") {
+			break
+		}
+	}
+	return -1
 }
 
 // ---------- $x =& new C(...) -> $x = new C(...) ----------
@@ -827,5 +877,121 @@ func ruleRealCast(toks []Token, add func(string, int, Severity, string, ...inter
 		edits = append(edits, edit{px, nx + 1, "(float)"})
 		add("real-cast", toks[i].Line, Fixed, "Replaced deprecated (real) cast with (float) (removed in PHP 8.0)")
 	}
+	return applyEdits(toks, edits)
+}
+
+// ---------- Modernize legacy error_reporting() & remove deprecated E_STRICT ----------
+
+func ruleEStrictAndErrorReporting(toks []Token, target string, add func(string, int, Severity, string, ...interface{})) []Token {
+	var edits []edit
+
+	for i := 0; i < len(toks); i++ {
+		// 1. error_reporting(...) calls
+		if isKw(toks[i], "error_reporting") {
+			nx := nextSig(toks, i)
+			if nx >= 0 && isOp(toks[nx], "(") {
+				close := matchDelim(toks, nx, "(", ")")
+				if close > nx {
+					hasNotice := false
+					hasStrict := false
+					hasSuppression := false
+					for j := nx + 1; j < close; j++ {
+						if toks[j].Type == TokIdent {
+							if strings.EqualFold(toks[j].Text, "E_NOTICE") {
+								hasNotice = true
+							}
+							if strings.EqualFold(toks[j].Text, "E_STRICT") {
+								hasStrict = true
+							}
+						}
+						if isOp(toks[j], "~") || isOp(toks[j], "^") {
+							hasSuppression = true
+						}
+					}
+					if (hasNotice && hasSuppression) || hasStrict {
+						edits = append(edits, edit{nx + 1, close, "E_ALL & ~E_NOTICE & ~E_WARNING & ~E_DEPRECATED"})
+						add("error-reporting-compat", toks[i].Line, Fixed,
+							"Modernized legacy error_reporting() to suppress PHP 8 undefined variable warnings & deprecated E_STRICT")
+						i = close
+						continue
+					}
+				}
+			}
+		}
+
+		// 2. Standalone E_STRICT references (outside error_reporting)
+		if toks[i].Type == TokIdent && strings.EqualFold(toks[i].Text, "E_STRICT") {
+			px := prevSig(toks, i)
+			if px >= 0 && isOp(toks[px], "~") {
+				pp := prevSig(toks, px)
+				if pp >= 0 && (isOp(toks[pp], "&") || isOp(toks[pp], "^") || isOp(toks[pp], "|")) {
+					edits = append(edits, edit{pp, i + 1, ""})
+				} else {
+					edits = append(edits, edit{px, i + 1, "0"})
+				}
+			} else if px >= 0 && (isOp(toks[px], "^") || isOp(toks[px], "|") || isOp(toks[px], "&")) {
+				edits = append(edits, edit{px, i + 1, ""})
+			} else {
+				nx := nextSig(toks, i)
+				if nx >= 0 && (isOp(toks[nx], "^") || isOp(toks[nx], "|") || isOp(toks[nx], "&")) {
+					edits = append(edits, edit{i, nx + 1, ""})
+				} else {
+					edits = append(edits, edit{i, i + 1, "0"})
+				}
+			}
+			add("estrict-removed", toks[i].Line, Fixed,
+				"Removed deprecated E_STRICT constant reference (removed in PHP 8.4)")
+		}
+	}
+
+	sortEdits(edits)
+	return applyEdits(toks, edits)
+}
+
+// ---------- #[\\AllowDynamicProperties] attribute for classes (PHP 8.2+) ----------
+
+func ruleAllowDynamicProperties(toks []Token, add func(string, int, Severity, string, ...interface{})) []Token {
+	classes := findClasses(toks)
+	var edits []edit
+	for _, cl := range classes {
+		classKwIdx := -1
+		for j := cl.open - 1; j >= 0; j-- {
+			if isKw(toks[j], "class") {
+				classKwIdx = j
+				break
+			}
+		}
+		if classKwIdx < 0 {
+			continue
+		}
+		hasAttr := false
+		for j := classKwIdx - 1; j >= 0 && j >= classKwIdx-15; j-- {
+			if strings.Contains(toks[j].Text, "AllowDynamicProperties") {
+				hasAttr = true
+				break
+			}
+			if isOp(toks[j], ";") || isOp(toks[j], "}") {
+				break
+			}
+		}
+		// Place attribute before any class modifiers like abstract, final, readonly
+		insertIdx := classKwIdx
+		for j := classKwIdx - 1; j >= 0; j-- {
+			if toks[j].Type == TokWhitespace || toks[j].Type == TokComment {
+				continue
+			}
+			if isKw(toks[j], "abstract") || isKw(toks[j], "final") || isKw(toks[j], "readonly") {
+				insertIdx = j
+				continue
+			}
+			break
+		}
+		if !hasAttr {
+			edits = append(edits, edit{insertIdx, insertIdx, "#[\\AllowDynamicProperties]\n"})
+			add("allow-dynamic-props", toks[insertIdx].Line, Fixed,
+				"Added #[\\AllowDynamicProperties] attribute to class %s (avoids PHP 8.2+ dynamic property deprecations)", cl.name)
+		}
+	}
+	sortEdits(edits)
 	return applyEdits(toks, edits)
 }

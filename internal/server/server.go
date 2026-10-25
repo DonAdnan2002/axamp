@@ -544,8 +544,9 @@ func (s *Server) handleUpgrader(w http.ResponseWriter, r *http.Request) {
 		VarToPublic:            true,
 		FixCurlyOffsets:        true,
 		FixPhp4Constructors:    true,
-		ConstructorPromotion:   true,
+		ConstructorPromotion:   false,
 		FixDeprecatedFunctions: true,
+		AllowDynamicProperties: true,
 	}
 
 	if req.Action == "snippet" {

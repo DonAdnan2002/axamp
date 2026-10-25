@@ -57,8 +57,9 @@ func DefaultOptions(target string) phptransform.Options {
 		VarToPublic:            true,
 		FixCurlyOffsets:        true,
 		FixPhp4Constructors:    true,
-		ConstructorPromotion:   true,
+		ConstructorPromotion:   false,
 		FixDeprecatedFunctions: true,
+		AllowDynamicProperties: true,
 	}
 }
 

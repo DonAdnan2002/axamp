@@ -1,6 +1,6 @@
-# 🚀 AXAMP v1.1.0-stable
+# 🚀 AXAMP v1.2.0-stable
 > **The Smart, Lightweight, and Standalone XAMPP Alternative Powered by Go**  
-> **بديل XAMPP الذكي، المحمول، والمستقل بالكامل بلغة Go — الإصدار 1.1**
+> **بديل XAMPP الذكي، المحمول، والمستقل بالكامل بلغة Go — الإصدار 1.2**
 
 👨‍💻 **مبتكر النظام (System Creator):** **عدنان سلطان حسن (Adnan Sultan Hassan)** — [`donadnan2002@gmail.com`](mailto:donadnan2002@gmail.com)
 
@@ -48,7 +48,8 @@
    - One-click **Auto-Hardening** (`.htaccess` secret protection, `disable_functions` hardening, production mode switching).
 
 10. **🚀 Integrated PHP 5.x/7.x $\rightarrow$ 8.5 Code Upgrader (`internal/phptransform` & `internal/upgrader`):**
-    - Built-in lexical tokenizer engine to upgrade legacy PHP code (`array()`, `list()`, `$str{0}`, PHP 4 constructors, constructor property promotion, `create_function`, `ereg/split`, `utf8_encode`, implicit nullable types) with live **`PHP 8.5.12 -l` syntax verification** and `.bak` backup support.
+    - Built-in lexical tokenizer engine to upgrade legacy PHP code (`array()`, `list()`, `$str{0}`, PHP 4 constructors, `create_function`, `ereg/split`, `utf8_encode`, implicit nullable types) with live **`PHP 8.5.12 -l` syntax verification** and `.bak` backup support.
+    - **v1.2.0 PHPRunner & Legacy Framework Hardening:** Automatic modernization of legacy `error_reporting()` to suppress PHP 8 undefined variable warnings, clean removal of deprecated `E_STRICT` constants (PHP 8.4+), automated `#[\AllowDynamicProperties]` attribute injection (PHP 8.2+), and safety-checked constructor promotion prevention to eliminate `Fatal error: Cannot redeclare` issues.
 
 ---
 
