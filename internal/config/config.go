@@ -13,7 +13,7 @@ type StackMode string
 
 // CurrentVersion is the running binary's release version. It overrides any
 // stale value persisted in older axamp.json files on load.
-const CurrentVersion = "2.0.0-stable"
+const CurrentVersion = "2.0.1-stable"
 
 const (
 	DevMode  StackMode = "development"

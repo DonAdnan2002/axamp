@@ -77,7 +77,7 @@ The full catalog: `mysql_*` → `mysqli` (annotated mappings) · `ereg`/`split` 
 
 ## 🚀 Install
 
-**Download & run** (no installer needed): grab [AXAMP-v2.0.0-Portable.zip](https://github.com/DonAdnan2002/axamp/releases/latest), unzip anywhere, run `axamp-launcher.exe`.
+**Download & run** (no installer needed): grab the latest `Portable.zip` from [Releases](https://github.com/DonAdnan2002/axamp/releases/latest), unzip anywhere, run `axamp-launcher.exe`.
 
 Package managers *(submitted, landing soon)*:
 ```powershell

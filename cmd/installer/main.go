@@ -2,6 +2,8 @@ package main
 
 import (
 	"archive/zip"
+	"bytes"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,13 +15,23 @@ import (
 	"time"
 )
 
+// The full portable payload is embedded at build time so the Setup.exe works
+// as a truly standalone download (a matching zip next to the exe, if present,
+// still takes priority for custom payload builds).
+//
+//go:embed payload/AXAMP-Portable.zip
+var embeddedPayload []byte
+
 func main() {
 	port := "14099"
 	mux := http.NewServeMux()
 
 	exePath, _ := os.Executable()
 	exeDir := filepath.Dir(exePath)
-	payloadZip := filepath.Join(exeDir, "AXAMP-v2.0.0-Portable.zip")
+	payloadZip := filepath.Join(exeDir, "AXAMP-v2.0.1-Portable.zip")
+	if _, err := os.Stat(payloadZip); os.IsNotExist(err) {
+		payloadZip = filepath.Join(exeDir, "AXAMP-v2.0.0-Portable.zip")
+	}
 	if _, err := os.Stat(payloadZip); os.IsNotExist(err) {
 		payloadZip = filepath.Join(exeDir, "AXAMP-v1.2.0-Portable.zip")
 	}
@@ -49,9 +61,15 @@ func main() {
 			return
 		}
 
-		// Extract from portable zip if available next to installer, otherwise copy core files from exeDir
+		// Extract from a portable zip beside the installer if present, else
+		// from the embedded payload, else copy core files from exeDir.
 		if _, err := os.Stat(payloadZip); err == nil {
 			if err := extractZip(payloadZip, req.TargetDir); err != nil {
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "error": err.Error()})
+				return
+			}
+		} else if len(embeddedPayload) > 0 {
+			if err := extractZipBytes(embeddedPayload, req.TargetDir); err != nil {
 				_ = json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "error": err.Error()})
 				return
 			}
@@ -99,7 +117,11 @@ func main() {
 	url := "http://127.0.0.1:" + port
 	go func() {
 		time.Sleep(300 * time.Millisecond)
-		openInstallerWindow(url)
+		// AXAMP_INSTALLER_HEADLESS=1 keeps the wizard window closed for
+		// automated testing of the install API.
+		if os.Getenv("AXAMP_INSTALLER_HEADLESS") == "" {
+			openInstallerWindow(url)
+		}
 	}()
 
 	fmt.Println("AXAMP Setup Wizard running at", url)
@@ -132,6 +154,18 @@ func extractZip(zipPath, destDir string) error {
 		return err
 	}
 	defer r.Close()
+	return extractZipReader(&r.Reader, destDir)
+}
+
+func extractZipBytes(zipBytes []byte, destDir string) error {
+	r, err := zip.NewReader(bytes.NewReader(zipBytes), int64(len(zipBytes)))
+	if err != nil {
+		return err
+	}
+	return extractZipReader(r, destDir)
+}
+
+func extractZipReader(r *zip.Reader, destDir string) error {
 	for _, f := range r.File {
 		rel := strings.TrimPrefix(strings.ReplaceAll(f.Name, `\`, `/`), "AXAMP/")
 		if rel == "" {
@@ -152,7 +186,7 @@ func extractZip(zipPath, destDir string) error {
 			rc.Close()
 			return err
 		}
-		_, _ = io.Copy(out, rc)
+		_, err = io.Copy(out, rc)
 		out.Close()
 		rc.Close()
 	}
@@ -180,7 +214,7 @@ const installerHTML = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<title>معالج تثبيت AXAMP v2.0.0-stable</title>
+<title>معالج تثبيت AXAMP v2.0.1-stable</title>
 <style>
 body { margin:0; font-family:'Segoe UI',system-ui,sans-serif; background:#0b1120; color:#f8fafc; display:flex; align-items:center; justify-content:center; height:100vh; }
 .box { width:580px; background:#151f32; border:1px solid #26354d; border-radius:16px; padding:28px; box-shadow:0 20px 30px rgba(0,0,0,0.5); }
@@ -196,7 +230,7 @@ input[type="text"] { width:100%; padding:10px 12px; background:#0b1120; border:1
     <div class="hdr">
         <img src="/logo.png" onerror="this.style.display='none'">
         <div>
-            <h2 style="margin:0;color:#38bdf8;">معالج تثبيت AXAMP v2.0.0-stable</h2>
+            <h2 style="margin:0;color:#38bdf8;">معالج تثبيت AXAMP v2.0.1-stable</h2>
             <small style="color:#94a3b8;">ابتكار وتطوير: <strong>عدنان سلطان حسن</strong> (donadnan2002@gmail.com)</small>
         </div>
     </div>
