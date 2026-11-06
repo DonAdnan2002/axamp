@@ -11,6 +11,10 @@ import (
 
 type StackMode string
 
+// CurrentVersion is the running binary's release version. It overrides any
+// stale value persisted in older axamp.json files on load.
+const CurrentVersion = "2.0.0-stable"
+
 const (
 	DevMode  StackMode = "development"
 	ProdMode StackMode = "production"
@@ -55,7 +59,7 @@ func generatePIN() string {
 
 func DefaultConfig(rootDir string) *AppConfig {
 	return &AppConfig{
-		Version:                 "2.0.0-stable",
+		Version:                 CurrentVersion,
 		CreatorName:             "عدنان سلطان حسن (Adnan Sultan Hassan)",
 		CreatorEmail:            "donadnan2002@gmail.com",
 		RootDir:                 rootDir,
@@ -112,7 +116,7 @@ func LoadOrInit(rootDir string) (*AppConfig, error) {
 		return cfg, err
 	}
 	cfg.RootDir = rootDir
-	cfg.Version = "1.0.0-stable"
+	cfg.Version = CurrentVersion
 	cfg.CreatorName = "عدنان سلطان حسن (Adnan Sultan Hassan)"
 	cfg.CreatorEmail = "donadnan2002@gmail.com"
 	if cfg.RemotePIN == "" {
@@ -143,6 +147,22 @@ func (c *AppConfig) Save() error {
 		return err
 	}
 	return os.WriteFile(cfgPath, data, 0644)
+}
+
+// SanitizedConfig returns the config as a JSON-safe map with secrets removed,
+// for use in API responses. The RemotePIN never leaves this machine through
+// /api/state; the local owner reads it via the local-only /api/pin endpoint.
+func (c *AppConfig) SanitizedConfig() map[string]interface{} {
+	data, err := json.Marshal(c)
+	if err != nil {
+		return map[string]interface{}{}
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal(data, &m); err != nil {
+		return map[string]interface{}{}
+	}
+	delete(m, "remote_pin")
+	return m
 }
 
 func (c *AppConfig) RegeneratePIN() string {

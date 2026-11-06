@@ -23,10 +23,14 @@ func main() {
 	headless := flag.Bool("headless", false, "Run in console/daemon mode without launching browser/app window")
 	flag.Parse()
 
-	rootDir, err := os.Getwd()
-	if err != nil {
-		exe, _ := os.Executable()
+	// Resolve the portable root from the executable location first: package
+	// managers (winget/scoop) and shortcuts launch from arbitrary working
+	// directories, and the whole stack must live next to its binary.
+	rootDir := "."
+	if exe, err := os.Executable(); err == nil {
 		rootDir = filepath.Dir(exe)
+	} else if wd, err := os.Getwd(); err == nil {
+		rootDir = wd
 	}
 
 	fmt.Println("====================================================")

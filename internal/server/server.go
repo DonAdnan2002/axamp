@@ -1,6 +1,7 @@
 package server
 
 import (
+	"crypto/subtle"
 	"embed"
 	"encoding/json"
 	"io/fs"
@@ -9,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"axamp/internal/config"
@@ -32,17 +34,25 @@ type Server struct {
 	cfg *config.AppConfig
 	sup *supervisor.Manager
 	pkg *pkgmanager.Manager
+
+	// pinGuard throttles remote PIN guessing: after maxPinFailures failed
+	// attempts within pinWindow, the source IP stays locked until those
+	// failures age out of the window.
+	mu          sync.Mutex
+	pinFailures map[string][]time.Time
 }
 
 func NewServer(cfg *config.AppConfig, sup *supervisor.Manager) *Server {
 	return &Server{
-		cfg: cfg,
-		sup: sup,
-		pkg: pkgmanager.NewManager(cfg),
+		cfg:         cfg,
+		sup:         sup,
+		pkg:         pkgmanager.NewManager(cfg),
+		pinFailures: make(map[string][]time.Time),
 	}
 }
 
-func (s *Server) Start() error {
+// routes builds the full control-plane routing table.
+func (s *Server) routes() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// API endpoints with Remote PIN protection for non-localhost clients
@@ -64,12 +74,32 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/settings", s.authMiddleware(s.handleSettings))
 	mux.HandleFunc("/api/quick-open", s.authMiddleware(s.handleQuickOpen))
 	mux.HandleFunc("/api/shutdown", s.authMiddleware(s.handleShutdown))
+	mux.HandleFunc("/api/pin", s.localOnly(s.handlePin))
 
 	subUI, _ := fs.Sub(uiFS, "ui")
 	mux.Handle("/", http.FileServer(http.FS(subUI)))
+	return mux
+}
 
-	addr := "0.0.0.0:" + s.cfg.ControlPort
-	return http.ListenAndServe(addr, mux)
+// bindHost keeps the control plane on loopback unless remote access is
+// explicitly enabled; toggling it requires a launcher restart.
+func (s *Server) bindHost() string {
+	if s.cfg.RemoteAccess {
+		return "0.0.0.0"
+	}
+	return "127.0.0.1"
+}
+
+func (s *Server) Start() error {
+	srv := &http.Server{
+		Addr:              s.bindHost() + ":" + s.cfg.ControlPort,
+		Handler:           s.hostGuard(s.routes()),
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+	return srv.ListenAndServe()
 }
 
 func isLocalRequest(r *http.Request) bool {
@@ -80,6 +110,60 @@ func isLocalRequest(r *http.Request) bool {
 	return host == "127.0.0.1" || host == "::1" || host == "localhost"
 }
 
+// isLocalHostHeader reports whether the request's Host header addresses this
+// machine by a loopback name (with or without port).
+func isLocalHostHeader(host string) bool {
+	host = strings.ToLower(host)
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+	switch host {
+	case "localhost", "127.0.0.1", "::1", "[::1]":
+		return true
+	}
+	return false
+}
+
+// hostGuard blocks DNS-rebinding attacks: requests arriving from this machine
+// must address the server by a loopback Host header, so a remote page whose
+// domain rebinds to 127.0.0.1 cannot reach the API from the local browser.
+func (s *Server) hostGuard(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if isLocalRequest(r) && !isLocalHostHeader(r.Host) {
+			http.Error(w, `{"error":"blocked: non-local Host header"}`, http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+const (
+	maxPinFailures = 5
+	pinWindow      = 15 * time.Minute
+)
+
+// pinLocked reports whether the source IP has exceeded failed-PIN attempts
+// inside the sliding window (and prunes expired attempts).
+func (s *Server) pinLocked(ip string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := time.Now()
+	var recent []time.Time
+	for _, ts := range s.pinFailures[ip] {
+		if now.Sub(ts) < pinWindow {
+			recent = append(recent, ts)
+		}
+	}
+	s.pinFailures[ip] = recent
+	return len(recent) >= maxPinFailures
+}
+
+func (s *Server) pinFailed(ip string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.pinFailures[ip] = append(s.pinFailures[ip], time.Now())
+}
+
 func (s *Server) authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !isLocalRequest(r) {
@@ -87,11 +171,16 @@ func (s *Server) authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 				http.Error(w, `{"error":"الوصول البعيد غير مفعل في إعدادات اللانشر"}`, http.StatusForbidden)
 				return
 			}
-			pin := r.Header.Get("X-AXAMP-PIN")
-			if pin == "" {
-				pin = r.URL.Query().Get("pin")
+			ip, _, _ := net.SplitHostPort(r.RemoteAddr)
+			if s.pinLocked(ip) {
+				http.Error(w, `{"error":"تم تجاوز الحد الأقصى لمحاولات الدخول، أعد المحاولة بعد قليل"}`, http.StatusTooManyRequests)
+				return
 			}
-			if pin != s.cfg.RemotePIN {
+			// PIN travels via header only (never query strings, which leak
+			// into logs and proxies), compared in constant time.
+			pin := r.Header.Get("X-AXAMP-PIN")
+			if subtle.ConstantTimeCompare([]byte(pin), []byte(s.cfg.RemotePIN)) != 1 {
+				s.pinFailed(ip)
 				http.Error(w, `{"error":"رمز الوصول البعيد (PIN) غير صحيح"}`, http.StatusUnauthorized)
 				return
 			}
@@ -99,6 +188,26 @@ func (s *Server) authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		next(w, r)
 	}
+}
+
+// localOnly restricts a handler to requests originating from this machine.
+func (s *Server) localOnly(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !isLocalRequest(r) {
+			http.Error(w, `{"error":"متاح فقط من الجهاز المحلي"}`, http.StatusForbidden)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		next(w, r)
+	}
+}
+
+// handlePin lets the local owner read the current remote-access PIN from the
+// settings panel; remote clients must already know it to authenticate.
+func (s *Server) handlePin(w http.ResponseWriter, r *http.Request) {
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"remote_pin": s.cfg.RemotePIN,
+	})
 }
 
 func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
@@ -109,7 +218,7 @@ func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 
 	payload := map[string]interface{}{
 		"is_local":     isLocalRequest(r),
-		"config":       s.cfg,
+		"config":       s.cfg.SanitizedConfig(),
 		"hardware":     hw,
 		"live_metrics": live,
 		"services":     s.sup.Status(),
@@ -277,7 +386,7 @@ func (s *Server) handleModeSwitch(w http.ResponseWriter, r *http.Request) {
 
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"ok":     true,
-		"config": s.cfg,
+		"config": s.cfg.SanitizedConfig(),
 	})
 }
 
@@ -586,6 +695,7 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewDecoder(r.Body).Decode(&req)
 
 	var actionErr error
+	remoteChanged := false
 	if req.RegeneratePIN {
 		s.cfg.RegeneratePIN()
 	} else if req.QuickPortOnly {
@@ -613,6 +723,7 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	} else {
+		remoteChanged = s.cfg.RemoteAccess != req.RemoteAccess
 		if req.ApachePort != "" {
 			s.cfg.ApachePort = strings.TrimSpace(req.ApachePort)
 		}
@@ -645,10 +756,11 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		errMsg = actionErr.Error()
 	}
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"ok":       actionErr == nil,
-		"error":    errMsg,
-		"config":   s.cfg,
-		"services": s.sup.Status(),
+		"ok":               actionErr == nil,
+		"error":            errMsg,
+		"config":           s.cfg.SanitizedConfig(),
+		"services":         s.sup.Status(),
+		"restart_required": remoteChanged,
 	})
 }
 

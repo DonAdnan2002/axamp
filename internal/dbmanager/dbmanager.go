@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"syscall"
@@ -33,6 +34,17 @@ var systemDBSkip = map[string]bool{
 	"performance_schema": true,
 	"mysql":              true,
 	"sys":                true,
+}
+
+// validDBName guards every place a database name flows into a mysql CLI
+// command or a backup file path (backtick escape in SQL, path join on disk).
+var validDBName = regexp.MustCompile(`^[A-Za-z0-9_]{1,64}$`)
+
+func validateDBName(name string) error {
+	if !validDBName.MatchString(name) {
+		return fmt.Errorf("اسم قاعدة بيانات غير صالح (المسموح: حروف إنجليزية وأرقام وشرطة سفلية، حتى 64 حرفًا): %q", name)
+	}
+	return nil
 }
 
 func ListDatabases(cfg *config.AppConfig) []DatabaseInfo {
@@ -101,6 +113,9 @@ func CreateDatabase(cfg *config.AppConfig, name string) error {
 	if name == "" {
 		return fmt.Errorf("اسم قاعدة البيانات مطلوب")
 	}
+	if err := validateDBName(name); err != nil {
+		return err
+	}
 	mysqlClient := filepath.Join(cfg.RootDir, "bin", "mysql", "bin", "mysql.exe")
 	if _, err := os.Stat(mysqlClient); err == nil {
 		cmd := exec.Command(mysqlClient, "-h", "127.0.0.1", "-P", cfg.MySQLPort, "-u", "root", "-e",
@@ -116,6 +131,9 @@ func CreateDatabase(cfg *config.AppConfig, name string) error {
 
 // BackupDatabase creates a compressed .zip backup (either via mysqldump .sql.zip or raw data folder archive if offline)
 func BackupDatabase(cfg *config.AppConfig, dbName string) (string, error) {
+	if err := validateDBName(dbName); err != nil {
+		return "", err
+	}
 	backupDir := filepath.Join(cfg.RootDir, "backups")
 	_ = os.MkdirAll(backupDir, 0755)
 	ts := time.Now().Format("20060102_150405")

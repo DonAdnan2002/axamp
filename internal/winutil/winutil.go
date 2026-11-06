@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"syscall"
 )
@@ -70,7 +71,14 @@ func OpenAppWindow(url string) (*exec.Cmd, error) {
 	return cmd, nil
 }
 
+// validHostsDomain rejects anything that could inject extra lines or corrupt
+// the privileged hosts file (newlines, spaces, comments, non-domain bytes).
+var validHostsDomain = regexp.MustCompile(`^[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$`)
+
 func SyncLocalHostsDomain(domain string, add bool) error {
+	if !validHostsDomain.MatchString(domain) {
+		return fmt.Errorf("نطاق غير صالح للإضافة إلى ملف hosts: %q", domain)
+	}
 	hostsPath := filepath.Join(os.Getenv("SystemRoot"), "System32", "drivers", "etc", "hosts")
 	content, err := os.ReadFile(hostsPath)
 	if err != nil {

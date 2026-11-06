@@ -1302,8 +1302,13 @@ async function refreshState() {
             </tr>
         `).join('') || `<tr><td colspan="3">${currentLang === 'en' ? 'No virtual hosts configured yet.' : 'لا توجد نطاقات مخصصة بعد.'}</td></tr>`;
 
-        // Settings & Remote
-        document.getElementById('remote-pin').textContent = data.config.remote_pin;
+        // Settings & Remote (PIN comes from the local-only /api/pin endpoint;
+        // it is never shipped inside /api/state responses)
+        fetch('/api/pin').then(r => (r.ok ? r.json() : null)).then(p => {
+            if (p && p.remote_pin !== undefined) {
+                document.getElementById('remote-pin').textContent = p.remote_pin;
+            }
+        }).catch(() => {});
         const ips = (data.hardware.local_ips || []).map(ip => `http://${ip}:${data.config.control_port}`).join(' ، ');
         document.getElementById('lan-urls').textContent = ips;
 
