@@ -21,6 +21,9 @@ conf/*.conf
 conf/*.ini
 conf/*.json
 
+# Private launch/marketing materials (not for public repo)
+marketing/
+
 # IDE & OS specific
 .idea/
 .vscode/
